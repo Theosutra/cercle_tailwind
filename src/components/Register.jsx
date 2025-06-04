@@ -1,9 +1,12 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import AuthService from '../services/authService'
+import { useAuth } from '../context/AuthContext' // Importer useAuth
+// Supprimer l'import direct d'AuthService
+// import AuthService from '../services/authService'
 
 const Register = () => {
   const navigate = useNavigate()
+  const { register } = useAuth() // Utiliser le register du contexte
   
   const [formData, setFormData] = useState({
     firstName: '',
@@ -94,8 +97,8 @@ const Register = () => {
         telephone: formData.telephone.trim() || undefined
       }
 
-      // Appel à l'API
-      const response = await AuthService.register(apiData)
+      // Utiliser le register du contexte au lieu d'AuthService directement
+      const response = await register(apiData)
       
       console.log('Inscription réussie:', response)
       

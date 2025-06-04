@@ -1,10 +1,13 @@
 import { useState } from 'react'
 import { Link, useNavigate, useLocation } from 'react-router-dom'
-import AuthService from '../services/authService'
+import { useAuth } from '../context/AuthContext' // Importer useAuth
+// Supprimer l'import direct d'AuthService
+// import AuthService from '../services/authService'
 
 const Login = () => {
   const navigate = useNavigate()
   const location = useLocation()
+  const { login } = useAuth() // Utiliser le login du contexte
   
   const [formData, setFormData] = useState({
     email: '',
@@ -39,8 +42,8 @@ const Login = () => {
         password: formData.password
       }
 
-      // Appel à l'API
-      const response = await AuthService.login(credentials)
+      // Utiliser le login du contexte au lieu d'AuthService directement
+      const response = await login(credentials)
       
       console.log('Connexion réussie:', response)
       
