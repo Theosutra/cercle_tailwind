@@ -1,9 +1,40 @@
-import { Link } from 'react-router-dom'
+import { Link, useLocation } from 'react-router-dom'
+import { useAuth } from '../context/AuthContext'
+import { useState, useEffect } from 'react'
 
 const Home = () => {
+  const { user, isAuthenticated, logout } = useAuth()
+  const location = useLocation()
+  const [message, setMessage] = useState('')
+
+  useEffect(() => {
+    // Afficher un message de bienvenue s'il y en a un
+    if (location.state?.message) {
+      setMessage(location.state.message)
+      // Nettoyer le message après 5 secondes
+      const timer = setTimeout(() => setMessage(''), 5000)
+      return () => clearTimeout(timer)
+    }
+  }, [location.state])
+
+  const handleLogout = async () => {
+    try {
+      await logout()
+    } catch (error) {
+      console.error('Erreur de déconnexion:', error)
+    }
+  }
+
   return (
     <div className="h-screen bg-gradient-to-br from-purple-200 via-purple-100 to-pink-100 flex overflow-hidden">
       
+      {/* Message de bienvenue */}
+      {message && (
+        <div className="fixed top-4 left-1/2 transform -translate-x-1/2 bg-green-500 text-white px-6 py-3 rounded-lg shadow-lg z-50">
+          {message}
+        </div>
+      )}
+
       {/* Partie gauche - Contenu principal */}
       <div className="w-full lg:w-1/2 flex items-center justify-center p-4 sm:p-6 lg:p-8 overflow-y-auto bg-white">
         <div className="w-full max-w-lg space-y-8 my-4">
@@ -20,40 +51,92 @@ const Home = () => {
 
           {/* Hero Section */}
           <div className="text-center space-y-6">
-            <h1 className="text-5xl lg:text-6xl font-bold text-gray-900 leading-tight">
-              Votre cercle,
-              <br />
-              <span className="bg-gradient-to-r from-purple-300 to-black bg-clip-text text-transparent">Votre monde</span>
-            </h1>
-            
-            <p className="text-lg text-gray-600 leading-relaxed max-w-md mx-auto">
-              Vous n’avez pas besoin de parler fort. Juste d’être entendu par les bonnes oreilles.
-            </p>
+            {isAuthenticated ? (
+              <>
+                <h1 className="text-4xl lg:text-5xl font-bold text-gray-900 leading-tight">
+                  Bienvenue,
+                  <br />
+                  <span className="bg-gradient-to-r from-purple-300 to-black bg-clip-text text-transparent">
+                    {user?.username || user?.prenom || 'Ami'}
+                  </span>
+                </h1>
+                
+                <p className="text-lg text-gray-600 leading-relaxed max-w-md mx-auto">
+                  Votre cercle vous attend. Découvrez ce que vos amis partagent.
+                </p>
+              </>
+            ) : (
+              <>
+                <h1 className="text-5xl lg:text-6xl font-bold text-gray-900 leading-tight">
+                  Votre cercle,
+                  <br />
+                  <span className="bg-gradient-to-r from-purple-300 to-black bg-clip-text text-transparent">Votre monde</span>
+                </h1>
+                
+                <p className="text-lg text-gray-600 leading-relaxed max-w-md mx-auto">
+                  Vous n'avez pas besoin de parler fort. Juste d'être entendu par les bonnes oreilles.
+                </p>
+              </>
+            )}
           </div>
 
           {/* CTA Buttons */}
           <div className="space-y-4">
-            <Link 
-              to="/register" 
-              className="w-full bg-black text-white py-4 px-6 rounded-lg font-semibold hover:bg-gray-800 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 block text-center"
-            >
-              Rejoindre Cercle
-            </Link>
-            
-            <Link 
-              to="/login" 
-              className="w-full border-2 border-gray-300 text-gray-700 py-4 px-6 rounded-lg font-semibold hover:border-gray-400 hover:bg-gray-50 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-300 block text-center"
-            >
-              J'ai déjà un compte
-            </Link>
+            {isAuthenticated ? (
+              <>
+                <Link 
+                  to="/feed" 
+                  className="w-full bg-black text-white py-4 px-6 rounded-lg font-semibold hover:bg-gray-800 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 block text-center"
+                >
+                  Découvrir le Feed
+                </Link>
+                
+                <button 
+                  onClick={handleLogout}
+                  className="w-full border-2 border-gray-300 text-gray-700 py-4 px-6 rounded-lg font-semibold hover:border-gray-400 hover:bg-gray-50 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-300"
+                >
+                  Se déconnecter
+                </button>
+              </>
+            ) : (
+              <>
+                <Link 
+                  to="/register" 
+                  className="w-full bg-black text-white py-4 px-6 rounded-lg font-semibold hover:bg-gray-800 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 block text-center"
+                >
+                  Rejoindre Cercle
+                </Link>
+                
+                <Link 
+                  to="/login" 
+                  className="w-full border-2 border-gray-300 text-gray-700 py-4 px-6 rounded-lg font-semibold hover:border-gray-400 hover:bg-gray-50 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-300 block text-center"
+                >
+                  J'ai déjà un compte
+                </Link>
+              </>
+            )}
           </div>
 
           {/* Social Proof */}
-          <div className="text-center pt-6">
-            <p className="text-xs text-gray-500">
-              Déjà <span className="font-semibold text-gray-700">10,000+</span> personnes dans leur cercle
-            </p>
-          </div>
+          {!isAuthenticated && (
+            <div className="text-center pt-6">
+              <p className="text-xs text-gray-500">
+                Déjà <span className="font-semibold text-gray-700">10,000+</span> personnes dans leur cercle
+              </p>
+            </div>
+          )}
+
+          {/* User Info */}
+          {isAuthenticated && user && (
+            <div className="text-center pt-6 border-t border-gray-200">
+              <p className="text-sm text-gray-600">
+                Connecté en tant que <span className="font-semibold text-gray-800">{user.mail}</span>
+              </p>
+              {user.certified && (
+                <p className="text-xs text-blue-600 mt-1">✓ Compte certifié</p>
+              )}
+            </div>
+          )}
 
         </div>
       </div>
@@ -89,20 +172,15 @@ const Home = () => {
         >
           À propos
         </Link>
-        <Link 
-          to="/feed" 
-          className="text-gray-600 hover:text-gray-800 font-medium text-sm bg-white/80 backdrop-blur-sm px-4 py-2 rounded-full transition-all duration-200"
-        >
-          Découvrir
-        </Link>
+        {isAuthenticated && (
+          <Link 
+            to="/feed" 
+            className="text-gray-600 hover:text-gray-800 font-medium text-sm bg-white/80 backdrop-blur-sm px-4 py-2 rounded-full transition-all duration-200"
+          >
+            Découvrir
+          </Link>
+        )}
       </nav>
-
-      {/* Indicateur de scroll (mobile) */}
-      <div className="lg:hidden absolute bottom-4 left-1/2 transform -translate-x-1/2">
-        <div className="w-1 h-8 bg-gray-300 rounded-full overflow-hidden">
-          <div className="w-full h-4 bg-purple-500 rounded-full animate-bounce"></div>
-        </div>
-      </div>
 
     </div>
   )

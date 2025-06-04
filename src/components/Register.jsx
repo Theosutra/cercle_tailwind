@@ -1,14 +1,23 @@
 import { useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
+import AuthService from '../services/authService'
 
 const Register = () => {
+  const navigate = useNavigate()
+  
   const [formData, setFormData] = useState({
     firstName: '',
     lastName: '',
+    username: '',
     email: '',
     password: '',
-    confirmPassword: ''
+    confirmPassword: '',
+    telephone: ''
   })
+
+  const [loading, setLoading] = useState(false)
+  const [errors, setErrors] = useState({})
+  const [apiError, setApiError] = useState('')
 
   const handleInputChange = (e) => {
     const { name, value } = e.target
@@ -16,16 +25,91 @@ const Register = () => {
       ...prev,
       [name]: value
     }))
+    
+    // Nettoyer l'erreur du champ modifié
+    if (errors[name]) {
+      setErrors(prev => ({
+        ...prev,
+        [name]: ''
+      }))
+    }
   }
 
-  const handleSubmit = (e) => {
-    e.preventDefault()
+  const validateForm = () => {
+    const newErrors = {}
+
+    // Validation côté client
+    if (!formData.username.trim()) {
+      newErrors.username = 'Le nom d\'utilisateur est requis'
+    } else if (formData.username.length < 3) {
+      newErrors.username = 'Le nom d\'utilisateur doit contenir au moins 3 caractères'
+    } else if (!/^[a-zA-Z0-9_]+$/.test(formData.username)) {
+      newErrors.username = 'Le nom d\'utilisateur ne peut contenir que des lettres, chiffres et _'
+    }
+
+    if (!formData.email.trim()) {
+      newErrors.email = 'L\'email est requis'
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
+      newErrors.email = 'Format d\'email invalide'
+    }
+
+    if (!formData.password) {
+      newErrors.password = 'Le mot de passe est requis'
+    } else if (formData.password.length < 6) {
+      newErrors.password = 'Le mot de passe doit contenir au moins 6 caractères'
+    } else if (!/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/.test(formData.password)) {
+      newErrors.password = 'Le mot de passe doit contenir au moins une minuscule, une majuscule et un chiffre'
+    }
+
     if (formData.password !== formData.confirmPassword) {
-      alert('Les mots de passe ne correspondent pas')
+      newErrors.confirmPassword = 'Les mots de passe ne correspondent pas'
+    }
+
+    if (formData.telephone && !/^[\+]?[\d\s\-\(\)]+$/.test(formData.telephone)) {
+      newErrors.telephone = 'Format de téléphone invalide'
+    }
+
+    setErrors(newErrors)
+    return Object.keys(newErrors).length === 0
+  }
+
+  const handleSubmit = async (e) => {
+    e.preventDefault()
+    setApiError('')
+
+    if (!validateForm()) {
       return
     }
-    // Logique d'inscription ici
-    console.log('Données d\'inscription:', formData)
+
+    setLoading(true)
+
+    try {
+      // Préparer les données pour l'API
+      const apiData = {
+        username: formData.username.trim(),
+        mail: formData.email.trim(),
+        password: formData.password,
+        nom: formData.lastName.trim() || undefined,
+        prenom: formData.firstName.trim() || undefined,
+        telephone: formData.telephone.trim() || undefined
+      }
+
+      // Appel à l'API
+      const response = await AuthService.register(apiData)
+      
+      console.log('Inscription réussie:', response)
+      
+      // Redirection vers le dashboard
+      navigate('/dashboard', { 
+        replace: true
+      })
+      
+    } catch (error) {
+      console.error('Erreur d\'inscription:', error)
+      setApiError(error.message || 'Une erreur est survenue lors de l\'inscription')
+    } finally {
+      setLoading(false)
+    }
   }
 
   return (
@@ -68,6 +152,13 @@ const Register = () => {
             <p className="text-sm text-gray-600">Rejoignez votre cercle dès maintenant</p>
           </div>
 
+          {/* Affichage des erreurs API */}
+          {apiError && (
+            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">
+              {apiError}
+            </div>
+          )}
+
           {/* Formulaire */}
           <form onSubmit={handleSubmit} className="space-y-5">
             
@@ -84,9 +175,13 @@ const Register = () => {
                   placeholder="Prénom"
                   value={formData.firstName}
                   onChange={handleInputChange}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none transition-all duration-200 text-gray-900 placeholder-gray-500"
-                  required
+                  className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none transition-all duration-200 text-gray-900 placeholder-gray-500 ${
+                    errors.firstName ? 'border-red-300 bg-red-50' : 'border-gray-300'
+                  }`}
                 />
+                {errors.firstName && (
+                  <p className="text-red-500 text-xs mt-1">{errors.firstName}</p>
+                )}
               </div>
               <div>
                 <label htmlFor="lastName" className="block text-sm font-medium text-gray-700 mb-2">
@@ -99,16 +194,42 @@ const Register = () => {
                   placeholder="Nom"
                   value={formData.lastName}
                   onChange={handleInputChange}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none transition-all duration-200 text-gray-900 placeholder-gray-500"
-                  required
+                  className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none transition-all duration-200 text-gray-900 placeholder-gray-500 ${
+                    errors.lastName ? 'border-red-300 bg-red-50' : 'border-gray-300'
+                  }`}
                 />
+                {errors.lastName && (
+                  <p className="text-red-500 text-xs mt-1">{errors.lastName}</p>
+                )}
               </div>
+            </div>
+
+            {/* Nom d'utilisateur */}
+            <div>
+              <label htmlFor="username" className="block text-sm font-medium text-gray-700 mb-2">
+                Nom d'utilisateur *
+              </label>
+              <input
+                id="username"
+                name="username"
+                type="text"
+                placeholder="nom_utilisateur"
+                value={formData.username}
+                onChange={handleInputChange}
+                className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none transition-all duration-200 text-gray-900 placeholder-gray-500 ${
+                  errors.username ? 'border-red-300 bg-red-50' : 'border-gray-300'
+                }`}
+                required
+              />
+              {errors.username && (
+                <p className="text-red-500 text-xs mt-1">{errors.username}</p>
+              )}
             </div>
 
             {/* Champ Email */}
             <div>
               <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
-                Email
+                Email *
               </label>
               <input
                 id="email"
@@ -117,15 +238,41 @@ const Register = () => {
                 placeholder="exemple@email.com"
                 value={formData.email}
                 onChange={handleInputChange}
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none transition-all duration-200 text-gray-900 placeholder-gray-500"
+                className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none transition-all duration-200 text-gray-900 placeholder-gray-500 ${
+                  errors.email ? 'border-red-300 bg-red-50' : 'border-gray-300'
+                }`}
                 required
               />
+              {errors.email && (
+                <p className="text-red-500 text-xs mt-1">{errors.email}</p>
+              )}
+            </div>
+
+            {/* Téléphone */}
+            <div>
+              <label htmlFor="telephone" className="block text-sm font-medium text-gray-700 mb-2">
+                Téléphone
+              </label>
+              <input
+                id="telephone"
+                name="telephone"
+                type="tel"
+                placeholder="+33 1 23 45 67 89"
+                value={formData.telephone}
+                onChange={handleInputChange}
+                className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none transition-all duration-200 text-gray-900 placeholder-gray-500 ${
+                  errors.telephone ? 'border-red-300 bg-red-50' : 'border-gray-300'
+                }`}
+              />
+              {errors.telephone && (
+                <p className="text-red-500 text-xs mt-1">{errors.telephone}</p>
+              )}
             </div>
 
             {/* Champ Mot de passe */}
             <div>
               <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-2">
-                Mot de passe
+                Mot de passe *
               </label>
               <input
                 id="password"
@@ -134,15 +281,20 @@ const Register = () => {
                 placeholder="Créer un mot de passe"
                 value={formData.password}
                 onChange={handleInputChange}
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none transition-all duration-200 text-gray-900 placeholder-gray-500"
+                className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none transition-all duration-200 text-gray-900 placeholder-gray-500 ${
+                  errors.password ? 'border-red-300 bg-red-50' : 'border-gray-300'
+                }`}
                 required
               />
+              {errors.password && (
+                <p className="text-red-500 text-xs mt-1">{errors.password}</p>
+              )}
             </div>
 
             {/* Confirmation mot de passe */}
             <div>
               <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700 mb-2">
-                Confirmer le mot de passe
+                Confirmer le mot de passe *
               </label>
               <input
                 id="confirmPassword"
@@ -151,17 +303,33 @@ const Register = () => {
                 placeholder="Confirmer le mot de passe"
                 value={formData.confirmPassword}
                 onChange={handleInputChange}
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none transition-all duration-200 text-gray-900 placeholder-gray-500"
+                className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none transition-all duration-200 text-gray-900 placeholder-gray-500 ${
+                  errors.confirmPassword ? 'border-red-300 bg-red-50' : 'border-gray-300'
+                }`}
                 required
               />
+              {errors.confirmPassword && (
+                <p className="text-red-500 text-xs mt-1">{errors.confirmPassword}</p>
+              )}
             </div>
 
             {/* Bouton d'inscription */}
             <button
               type="submit"
-              className="w-full bg-black text-white py-3 px-4 rounded-lg font-medium hover:bg-gray-800 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500"
+              disabled={loading}
+              className="w-full bg-black text-white py-3 px-4 rounded-lg font-medium hover:bg-gray-800 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
             >
-              S'inscrire
+              {loading ? (
+                <>
+                  <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                  Inscription en cours...
+                </>
+              ) : (
+                'S\'inscrire'
+              )}
             </button>
 
             {/* Lien "J'ai déjà un compte" */}
