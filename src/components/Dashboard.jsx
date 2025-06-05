@@ -16,94 +16,139 @@ const Dashboard = () => {
     }
   }
 
+  const dashboardStats = [
+    { label: 'Publications', value: '0', icon: '📝' },
+    { label: 'Amis', value: '0', icon: '👥' },
+    { label: 'Messages', value: '0', icon: '✉️' },
+    { label: 'Notifications', value: '0', icon: '🔔' },
+  ]
+
+  const quickActions = [
+    { 
+      title: 'Créer une publication', 
+      description: 'Partagez vos moments avec votre cercle',
+      icon: '✍️',
+      action: () => navigate('/create-post'),
+      color: 'bg-blue-500 hover:bg-blue-600'
+    },
+    { 
+      title: 'Trouver des amis', 
+      description: 'Découvrez et connectez-vous avec de nouvelles personnes',
+      icon: '🔍',
+      action: () => navigate('/friends'),
+      color: 'bg-green-500 hover:bg-green-600'
+    },
+    { 
+      title: 'Modifier mon profil', 
+      description: 'Mettez à jour vos informations personnelles',
+      icon: '👤',
+      action: () => navigate('/profile'),
+      color: 'bg-purple-500 hover:bg-purple-600'
+    },
+    { 
+      title: 'Paramètres', 
+      description: 'Gérez vos préférences et votre confidentialité',
+      icon: '⚙️',
+      action: () => navigate('/settings'),
+      color: 'bg-gray-500 hover:bg-gray-600'
+    },
+  ]
+
   return (
     <div className="min-h-screen bg-gray-50 flex">
       {/* Sidebar gauche */}
       <LeftSidebar />
       
       {/* Contenu principal avec marge pour la sidebar */}
-      <div className="ml-72 flex-1 flex items-center justify-center">
-        <div className="text-center space-y-8 bg-white rounded-2xl p-12 shadow-sm max-w-lg w-full mx-6">
+      <div className="ml-72 flex-1 p-8">
+        <div className="max-w-6xl mx-auto">
           
-          {/* Message de bienvenue */}
-          <div className="space-y-4">
-            <div className="w-16 h-16 bg-gradient-to-br from-purple-400 to-pink-500 rounded-full flex items-center justify-center mx-auto">
-              <span className="text-white font-bold text-2xl">
-                {user?.prenom?.[0]?.toUpperCase() || user?.username?.[0]?.toUpperCase() || 'U'}
-              </span>
-            </div>
-            
-            <h1 className="text-3xl font-bold text-gray-900">
-              Bienvenue {user?.prenom || user?.username} !
-            </h1>
-            
-            {/* Informations utilisateur */}
-            <div className="text-gray-600 space-y-2 bg-gray-50 rounded-xl p-4">
-              <p className="text-sm">
-                <span className="font-medium text-gray-800">Email:</span> {user?.mail}
-              </p>
-              <p className="text-sm">
-                <span className="font-medium text-gray-800">Username:</span> @{user?.username}
-              </p>
-              {user?.nom && (
-                <p className="text-sm">
-                  <span className="font-medium text-gray-800">Nom complet:</span> {user.prenom} {user.nom}
+          {/* En-tête du dashboard */}
+          <div className="mb-8">
+            <div className="flex items-center justify-between">
+              <div>
+                <h1 className="text-3xl font-bold text-gray-900">
+                  Bienvenue, {user?.prenom || user?.username} !
+                </h1>
+                <p className="text-gray-600 mt-2">
+                  Voici un aperçu de votre activité sur Cercle
                 </p>
-              )}
-              {user?.certified && (
-                <div className="flex items-center justify-center mt-3">
-                  <span className="text-blue-600 font-medium text-sm bg-blue-50 px-3 py-1 rounded-full">
-                    ✓ Compte certifié
-                  </span>
-                </div>
-              )}
+              </div>
+              
+              <div className="flex items-center space-x-3">
+                <button
+                  onClick={() => navigate('/feed')}
+                  className="bg-black text-white px-6 py-2 rounded-xl hover:bg-gray-800 transition-colors duration-200 font-medium"
+                >
+                  Voir le Feed
+                </button>
+              </div>
             </div>
           </div>
 
-          {/* Actions */}
-          <div className="space-y-4">
-            <button
-              onClick={() => navigate('/feed')}
-              className="w-full bg-black text-white font-medium py-3 px-6 rounded-xl hover:bg-gray-800 transition-colors duration-200"
-            >
-              Aller au Feed
-            </button>
-            
-            <button
-              onClick={handleLogout}
-              className="w-full bg-gray-100 text-gray-700 font-medium py-3 px-6 rounded-xl hover:bg-gray-200 transition-colors duration-200"
-            >
-              Se déconnecter
-            </button>
+          {/* Statistiques en carte */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+            {dashboardStats.map((stat, index) => (
+              <div key={index} className="bg-white rounded-2xl shadow-sm p-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-gray-500">{stat.label}</p>
+                    <p className="text-3xl font-bold text-gray-900">{stat.value}</p>
+                  </div>
+                  <div className="text-3xl">{stat.icon}</div>
+                </div>
+              </div>
+            ))}
           </div>
 
-          {/* Navigation rapide */}
-          <div className="pt-6 border-t border-gray-100">
-            <p className="text-sm text-gray-500 mb-3">Navigation rapide</p>
-            <div className="grid grid-cols-2 gap-3">
-              <button 
-                onClick={() => navigate('/profile')}
-                className="text-sm bg-gray-50 hover:bg-gray-100 py-2 px-3 rounded-lg transition-colors"
+          {/* Actions rapides */}
+          <div className="mb-8">
+            <h2 className="text-xl font-bold text-gray-900 mb-6">Actions rapides</h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {quickActions.map((action, index) => (
+                <div 
+                  key={index}
+                  onClick={action.action}
+                  className="bg-white rounded-2xl shadow-sm p-6 cursor-pointer hover:shadow-md transition-all duration-200 group"
+                >
+                  <div className="flex items-start space-x-4">
+                    <div className={`w-12 h-12 ${action.color} rounded-xl flex items-center justify-center text-white text-xl transition-colors duration-200`}>
+                      {action.icon}
+                    </div>
+                    <div className="flex-1">
+                      <h3 className="font-bold text-gray-900 group-hover:text-gray-700 transition-colors">
+                        {action.title}
+                      </h3>
+                      <p className="text-sm text-gray-600 mt-1">
+                        {action.description}
+                      </p>
+                    </div>
+                    <div className="text-gray-400 group-hover:text-gray-600 transition-colors">
+                      →
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Activité récente */}
+          <div className="bg-white rounded-2xl shadow-sm p-6">
+            <h2 className="text-xl font-bold text-gray-900 mb-6">Activité récente</h2>
+            
+            <div className="text-center py-12">
+              <div className="text-gray-400 text-5xl mb-4">📭</div>
+              <h3 className="text-lg font-medium text-gray-900 mb-2">
+                Aucune activité récente
+              </h3>
+              <p className="text-gray-600 mb-6">
+                Commencez à interagir avec votre cercle pour voir votre activité ici
+              </p>
+              <button
+                onClick={() => navigate('/feed')}
+                className="bg-black text-white px-6 py-2 rounded-xl hover:bg-gray-800 transition-colors duration-200 font-medium"
               >
-                👤 Profil
-              </button>
-              <button 
-                onClick={() => navigate('/messages')}
-                className="text-sm bg-gray-50 hover:bg-gray-100 py-2 px-3 rounded-lg transition-colors"
-              >
-                ✉️ Messages
-              </button>
-              <button 
-                onClick={() => navigate('/friends')}
-                className="text-sm bg-gray-50 hover:bg-gray-100 py-2 px-3 rounded-lg transition-colors"
-              >
-                👥 Amis
-              </button>
-              <button 
-                onClick={() => navigate('/settings')}
-                className="text-sm bg-gray-50 hover:bg-gray-100 py-2 px-3 rounded-lg transition-colors"
-              >
-                ⚙️ Paramètres
+                Découvrir le Feed
               </button>
             </div>
           </div>
