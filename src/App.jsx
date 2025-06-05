@@ -6,6 +6,7 @@ import Register from './components/Register'
 import About from './components/About'
 import Dashboard from './components/Dashboard'
 import Profile from './components/Profile'
+import Feed from './components/Feed'
 import ProtectedRoute from './components/ProtectedRoute'
 
 function App() {
@@ -38,17 +39,12 @@ function App() {
             } 
           />
           
-          {/* Routes protégées */}
+          {/* Page Feed principale */}
           <Route 
             path="/feed" 
             element={
               <ProtectedRoute>
-                <div className="min-h-screen flex items-center justify-center">
-                  <div className="text-center">
-                    <h1 className="text-2xl font-bold text-gray-900 mb-4">Page Feed</h1>
-                    <p className="text-gray-600">Contenu réservé aux utilisateurs connectés</p>
-                  </div>
-                </div>
+                <Feed />
               </ProtectedRoute>
             } 
           />
@@ -58,10 +54,24 @@ function App() {
             path="/messages" 
             element={
               <ProtectedRoute>
-                <div className="min-h-screen flex items-center justify-center">
-                  <div className="text-center">
-                    <h1 className="text-2xl font-bold text-gray-900 mb-4">Messages</h1>
-                    <p className="text-gray-600">Page des messages en cours de développement</p>
+                <div className="min-h-screen bg-gray-50 flex">
+                  {/* Import du LeftSidebar pour cohérence */}
+                  <div className="w-72 bg-white h-screen fixed left-0 top-0 flex flex-col shadow-sm">
+                    <div className="p-6">
+                      <div className="flex items-center space-x-3">
+                        <div className="w-8 h-8 border-2 border-black rounded-full flex items-center justify-center">
+                          <div className="w-2 h-2 bg-black rounded-full"></div>
+                        </div>
+                        <span className="text-2xl font-bold text-black">CERCLE</span>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="ml-72 flex-1 flex items-center justify-center">
+                    <div className="text-center">
+                      <div className="text-gray-400 text-6xl mb-4">💬</div>
+                      <h1 className="text-2xl font-bold text-gray-900 mb-4">Messages</h1>
+                      <p className="text-gray-600">Page des messages en cours de développement</p>
+                    </div>
                   </div>
                 </div>
               </ProtectedRoute>
@@ -72,10 +82,23 @@ function App() {
             path="/friends" 
             element={
               <ProtectedRoute>
-                <div className="min-h-screen flex items-center justify-center">
-                  <div className="text-center">
-                    <h1 className="text-2xl font-bold text-gray-900 mb-4">Amis</h1>
-                    <p className="text-gray-600">Page des amis en cours de développement</p>
+                <div className="min-h-screen bg-gray-50 flex">
+                  <div className="w-72 bg-white h-screen fixed left-0 top-0 flex flex-col shadow-sm">
+                    <div className="p-6">
+                      <div className="flex items-center space-x-3">
+                        <div className="w-8 h-8 border-2 border-black rounded-full flex items-center justify-center">
+                          <div className="w-2 h-2 bg-black rounded-full"></div>
+                        </div>
+                        <span className="text-2xl font-bold text-black">CERCLE</span>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="ml-72 flex-1 flex items-center justify-center">
+                    <div className="text-center">
+                      <div className="text-gray-400 text-6xl mb-4">👥</div>
+                      <h1 className="text-2xl font-bold text-gray-900 mb-4">Amis</h1>
+                      <p className="text-gray-600">Page des amis en cours de développement</p>
+                    </div>
                   </div>
                 </div>
               </ProtectedRoute>
@@ -86,10 +109,23 @@ function App() {
             path="/settings" 
             element={
               <ProtectedRoute>
-                <div className="min-h-screen flex items-center justify-center">
-                  <div className="text-center">
-                    <h1 className="text-2xl font-bold text-gray-900 mb-4">Paramètres</h1>
-                    <p className="text-gray-600">Page des paramètres en cours de développement</p>
+                <div className="min-h-screen bg-gray-50 flex">
+                  <div className="w-72 bg-white h-screen fixed left-0 top-0 flex flex-col shadow-sm">
+                    <div className="p-6">
+                      <div className="flex items-center space-x-3">
+                        <div className="w-8 h-8 border-2 border-black rounded-full flex items-center justify-center">
+                          <div className="w-2 h-2 bg-black rounded-full"></div>
+                        </div>
+                        <span className="text-2xl font-bold text-black">CERCLE</span>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="ml-72 flex-1 flex items-center justify-center">
+                    <div className="text-center">
+                      <div className="text-gray-400 text-6xl mb-4">⚙️</div>
+                      <h1 className="text-2xl font-bold text-gray-900 mb-4">Paramètres</h1>
+                      <p className="text-gray-600">Page des paramètres en cours de développement</p>
+                    </div>
                   </div>
                 </div>
               </ProtectedRoute>
