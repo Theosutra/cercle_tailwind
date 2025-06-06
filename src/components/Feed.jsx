@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
-import LeftSidebar from './LeftSidebar';
+import LeftSidebar from './LeftSideBar';
 import RightSidebar from './RightSidebar';
 
 const Feed = () => {
