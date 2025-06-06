@@ -78,36 +78,45 @@ const LeftSidebar = () => {
     <div className="w-72 bg-white h-screen fixed left-0 top-0 flex flex-col shadow-sm">
       
       {/* Section profil utilisateur */}
-      <div className="p-6">
-        <div className="flex flex-col items-center text-center space-y-3">
+      <div className="p-6 group">
+        <div 
+          className="flex flex-col items-center text-center space-y-3 p-4 rounded-2xl cursor-pointer transition-all duration-300 hover:bg-gray-50 hover:scale-105 hover:shadow-sm"
+          onClick={() => handleNavigation('/profile')}
+        >
           {/* Photo de profil */}
           <div className="relative">
-            <div className="w-20 h-20 rounded-full overflow-hidden border-2 border-gray-200">
+            <div className="w-20 h-20 rounded-full overflow-hidden border-2 border-gray-200 transition-all duration-300 group-hover:border-gray-300 group-hover:shadow-lg">
               {user?.photo_profil ? (
                 <img 
                   src={user.photo_profil} 
                   alt="Profile" 
-                  className="w-full h-full object-cover"
+                  className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-110"
                 />
               ) : (
-                <div className="w-full h-full bg-gradient-to-br from-blue-400 via-purple-500 to-pink-500 flex items-center justify-center">
-                  <span className="text-white font-bold text-2xl">
+                <div className="w-full h-full bg-gradient-to-br from-blue-400 via-purple-500 to-pink-500 flex items-center justify-center transition-all duration-300 group-hover:from-blue-500 group-hover:via-purple-600 group-hover:to-pink-600">
+                  <span className="text-white font-bold text-2xl transition-transform duration-300 group-hover:scale-110">
                     {user?.prenom?.[0]?.toUpperCase() || user?.username?.[0]?.toUpperCase() || 'U'}
                   </span>
                 </div>
               )}
             </div>
+            {/* Indicateur de hover */}
+            <div className="absolute -top-1 -right-1 w-6 h-6 bg-green-500 rounded-full border-2 border-white opacity-0 group-hover:opacity-100 transition-all duration-300 flex items-center justify-center">
+              <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd"/>
+              </svg>
+            </div>
           </div>
 
           {/* Nom et prénom */}
-          <div>
-            <h3 className="text-lg font-bold text-gray-900">
+          <div className="transition-all duration-300 group-hover:transform group-hover:translate-y-1">
+            <h3 className="text-lg font-bold text-gray-900 transition-colors duration-300 group-hover:text-black">
               {user?.prenom && user?.nom 
                 ? `${user.prenom} ${user.nom}` 
                 : user?.username || 'Utilisateur'
               }
             </h3>
-            <p className="text-sm text-gray-500 mt-1">
+            <p className="text-sm text-gray-500 mt-1 transition-colors duration-300 group-hover:text-gray-700">
               @{user?.username || 'username'}
             </p>
           </div>
@@ -116,22 +125,44 @@ const LeftSidebar = () => {
 
       {/* Menu Navigation */}
       <nav className="flex-1 px-6">
-        <ul className="space-y-2 mt-15">
+        <ul className="space-y-2 mt-4">
           {menuItems.map((item, index) => (
             <li key={index}>
               <button
                 onClick={() => handleNavigation(item.path)}
-                className={`w-full flex items-center justify-start space-x-4 px-6 py-4 rounded-2xl text-left transition-all duration-200 group ${
+                className={`w-full flex items-center justify-start space-x-4 px-6 py-4 rounded-2xl text-left transition-all duration-300 group relative overflow-hidden ${
                   item.isActive 
-                    ? 'bg-black text-white' 
-                    : 'text-gray-700 hover:bg-gray-100'
+                    ? 'bg-black text-white shadow-lg' 
+                    : 'text-gray-700 hover:bg-gray-100 hover:shadow-md hover:scale-105'
                 }`}
               >
+                {/* Effet de background animé au hover */}
+                <div className={`absolute inset-0 bg-gradient-to-r from-gray-100 to-gray-50 transform transition-transform duration-300 ${
+                  item.isActive ? 'scale-0' : 'scale-0 group-hover:scale-100'
+                } rounded-2xl`}></div>
+                
+                {/* Barre latérale d'indication */}
+                <div className={`absolute left-0 top-0 h-full w-1 bg-black transform transition-all duration-300 ${
+                  item.isActive ? 'scale-y-100' : 'scale-y-0 group-hover:scale-y-75'
+                } rounded-r-full`}></div>
+
                 {/* SVG Icons */}
-                <div className="w-6 h-6 flex-shrink-0">
+                <div className={`w-6 h-6 flex-shrink-0 relative z-10 transition-all duration-300 ${
+                  !item.isActive ? 'group-hover:scale-110 group-hover:text-black' : ''
+                }`}>
                   {item.icon}
                 </div>
-                <span className="font-medium text-lg">{item.label}</span>
+                
+                <span className={`font-medium text-lg relative z-10 transition-all duration-300 ${
+                  !item.isActive ? 'group-hover:text-black group-hover:font-semibold' : ''
+                }`}>
+                  {item.label}
+                </span>
+
+                {/* Effet de brillance au hover */}
+                <div className={`absolute inset-0 bg-gradient-to-r from-transparent via-white to-transparent opacity-0 ${
+                  !item.isActive ? 'group-hover:opacity-20' : ''
+                } transform -skew-x-12 transition-all duration-700 group-hover:translate-x-full`}></div>
               </button>
             </li>
           ))}
@@ -139,12 +170,17 @@ const LeftSidebar = () => {
       </nav>
 
       {/* Logo Cercle en bas */}
-      <div className="p-20 border-t border-gray-100">
-        <div className="flex items-center justify-center space-x-3">
-          <div className="w-8 h-8 border-2 border-black rounded-full flex items-center justify-center">
-            <div className="w-2 h-2 bg-black rounded-full"></div>
+      <div className="p-6 border-t border-gray-100 group">
+        <div 
+          className="flex items-center justify-center space-x-3 p-4 rounded-2xl cursor-pointer transition-all duration-300 hover:bg-gray-50 hover:scale-105"
+          onClick={() => handleNavigation('/')}
+        >
+          <div className="w-8 h-8 border-2 border-black rounded-full flex items-center justify-center transition-all duration-300 group-hover:border-gray-600 group-hover:shadow-lg group-hover:rotate-12">
+            <div className="w-2 h-2 bg-black rounded-full transition-all duration-300 group-hover:bg-gray-600 group-hover:scale-125"></div>
           </div>
-          <span className="text-2xl font-bold text-black tracking-wide">CERCLE</span>
+          <span className="text-2xl font-bold text-black tracking-wide transition-all duration-300 group-hover:text-gray-700 group-hover:tracking-wider">
+            CERCLE
+          </span>
         </div>
       </div>
     </div>

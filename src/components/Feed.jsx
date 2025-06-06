@@ -12,21 +12,37 @@ const Feed = () => {
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [error, setError] = useState('');
   const [showMobileMenu, setShowMobileMenu] = useState(false);
+  const [feedFilter, setFeedFilter] = useState('recent'); // 'recent', 'friends', 'popular'
 
   // Fetch posts from API
   useEffect(() => {
     fetchPosts();
-  }, []);
+  }, [feedFilter]); // Re-fetch when filter changes
 
   const fetchPosts = async () => {
     try {
       setIsLoading(true);
       const token = localStorage.getItem('accessToken');
       
-      // Try personal timeline first, fallback to public
+      // Choisir l'endpoint selon le filtre sélectionné
+      let endpoint;
+      switch (feedFilter) {
+        case 'friends':
+          endpoint = '/api/v1/posts/timeline/personal';
+          break;
+        case 'popular':
+          endpoint = '/api/v1/posts/popular';
+          break;
+        case 'recent':
+        default:
+          endpoint = '/api/v1/posts/public';
+          break;
+      }
+
+      // Try the specific endpoint first
       let response;
       try {
-        response = await fetch('/api/v1/posts/timeline/personal', {
+        response = await fetch(endpoint, {
           headers: {
             'Authorization': `Bearer ${token}`,
             'Content-Type': 'application/json'
@@ -274,6 +290,81 @@ const Feed = () => {
         <main className="flex-1 lg:ml-72 xl:mr-80 pt-16 lg:pt-0">
           <div className="max-w-2xl mx-auto px-3 sm:px-4 lg:px-8 py-4 lg:py-6 pb-32">
 
+            {/* Header with Feed title and filters - Desktop only */}
+            <div className="hidden lg:flex items-center justify-between mb-6">
+              <h1 className="text-2xl font-bold text-gray-900">Feed</h1>
+              
+              {/* Feed filters */}
+              <div className="flex items-center space-x-1 bg-gray-100 rounded-lg p-1">
+                <button
+                  onClick={() => setFeedFilter('recent')}
+                  className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${
+                    feedFilter === 'recent'
+                      ? 'bg-white text-gray-900 shadow-sm'
+                      : 'text-gray-600 hover:text-gray-900'
+                  }`}
+                >
+                  Récent
+                </button>
+                <button
+                  onClick={() => setFeedFilter('friends')}
+                  className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${
+                    feedFilter === 'friends'
+                      ? 'bg-white text-gray-900 shadow-sm'
+                      : 'text-gray-600 hover:text-gray-900'
+                  }`}
+                >
+                  Amis
+                </button>
+                <button
+                  onClick={() => setFeedFilter('popular')}
+                  className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${
+                    feedFilter === 'popular'
+                      ? 'bg-white text-gray-900 shadow-sm'
+                      : 'text-gray-600 hover:text-gray-900'
+                  }`}
+                >
+                  Populaire
+                </button>
+              </div>
+            </div>
+
+            {/* Mobile Feed Filters */}
+            <div className="lg:hidden mb-4">
+              <div className="flex items-center space-x-1 bg-gray-100 rounded-lg p-1">
+                <button
+                  onClick={() => setFeedFilter('recent')}
+                  className={`flex-1 px-3 py-2 text-sm font-medium rounded-md transition-colors ${
+                    feedFilter === 'recent'
+                      ? 'bg-white text-gray-900 shadow-sm'
+                      : 'text-gray-600 hover:text-gray-900'
+                  }`}
+                >
+                  Récent
+                </button>
+                <button
+                  onClick={() => setFeedFilter('friends')}
+                  className={`flex-1 px-3 py-2 text-sm font-medium rounded-md transition-colors ${
+                    feedFilter === 'friends'
+                      ? 'bg-white text-gray-900 shadow-sm'
+                      : 'text-gray-600 hover:text-gray-900'
+                  }`}
+                >
+                  Amis
+                </button>
+                <button
+                  onClick={() => setFeedFilter('popular')}
+                  className={`flex-1 px-3 py-2 text-sm font-medium rounded-md transition-colors ${
+                    feedFilter === 'popular'
+                      ? 'bg-white text-gray-900 shadow-sm'
+                      : 'text-gray-600 hover:text-gray-900'
+                  }`}
+                >
+                  Populaire
+                </button>
+              </div>
+            </div>
+
             {/* Error Message */}
             {error && (
               <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl mb-6 flex items-center space-x-2">
@@ -319,7 +410,9 @@ const Feed = () => {
                     Aucun post pour le moment
                   </h3>
                   <p className="text-gray-600 mb-4 lg:mb-6 max-w-md mx-auto text-sm lg:text-base px-4">
-                    Soyez le premier à partager quelque chose avec votre cercle ! Vos pensées comptent.
+                    {feedFilter === 'friends' ? 'Vos amis n\'ont pas encore publié de posts' :
+                     feedFilter === 'popular' ? 'Aucun post populaire pour le moment' :
+                     'Soyez le premier à partager quelque chose avec votre cercle ! Vos pensées comptent.'}
                   </p>
                   <button 
                     onClick={() => document.querySelector('textarea')?.focus()}
