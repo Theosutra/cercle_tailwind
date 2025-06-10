@@ -2,7 +2,7 @@
 import { useState } from 'react'
 import { useAuth } from '../context/AuthContext'
 import { useNavigate } from 'react-router-dom'
-import LeftSidebar from './LeftSideBar'
+import LeftSidebar from './LeftSidebar'
 
 const Profile = () => {
   const { user, logout, updateUser } = useAuth()

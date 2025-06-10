@@ -1,7 +1,7 @@
 // src/components/Dashboard.jsx
 import { useAuth } from '../context/AuthContext'
 import { useNavigate } from 'react-router-dom'
-import LeftSidebar from './LeftSideBar'
+import LeftSidebar from './LeftSidebar'
 
 const Dashboard = () => {
   const { user, logout } = useAuth()
