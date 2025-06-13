@@ -9,6 +9,7 @@ import Profile from './components/Profile'
 import Feed from './components/Feed'
 import Messages from './components/Messages'
 import Friends from './components/Friends' // Import du nouveau composant Friends
+import Parametres from './components/Parametres' // Import du nouveau composant Paramètres
 import ProtectedRoute from './components/ProtectedRoute'
 
 function App() {
@@ -67,6 +68,16 @@ function App() {
             element={
               <ProtectedRoute>
                 <Friends />
+              </ProtectedRoute>
+            } 
+          />
+          
+          {/* Page Paramètres */}
+          <Route 
+            path="/parametres" 
+            element={
+              <ProtectedRoute>
+                <Parametres />
               </ProtectedRoute>
             } 
           />

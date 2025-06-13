@@ -56,8 +56,8 @@ const LeftSidebar = () => {
         </svg>
       ), 
       label: 'Parametres', 
-      path: '/settings',
-      isActive: location.pathname === '/settings'
+      path: '/parametres',
+      isActive: location.pathname === '/parametres'
     }
   ];
 
