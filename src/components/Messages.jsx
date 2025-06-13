@@ -695,7 +695,7 @@ const Messages = () => {
                   <h2 className="text-xl font-bold text-gray-900">Messages</h2>
                   <button 
                     onClick={handleOpenUserSearch}
-                    className="p-2.5 rounded-full bg-blue-600 hover:bg-blue-700 transition-colors group"
+                    className="p-2.5 rounded-full bg-black-600 hover:bg-black-700 transition-colors group"
                     title="Nouvelle conversation"
                   >
                     <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -762,7 +762,7 @@ const Messages = () => {
                       {!searchTerm && (
                         <button 
                           onClick={handleOpenUserSearch}
-                          className="px-6 py-3 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors font-medium"
+                          className="px-6 py-3 bg-black-600 text-white rounded-xl hover:bg-grey-700 transition-colors font-medium"
                         >
                           Nouvelle conversation
                         </button>
@@ -1072,7 +1072,7 @@ const Messages = () => {
                     </p>
                     <button 
                       onClick={handleOpenUserSearch}
-                      className="px-6 py-3 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors font-medium"
+                      className="px-6 py-3 bg-black text-white rounded-xl hover:bg-black-300 transition-colors font-medium"
                     >
                       Nouvelle conversation
                     </button>
