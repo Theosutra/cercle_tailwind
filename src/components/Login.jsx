@@ -47,8 +47,8 @@ const Login = () => {
       
       console.log('Connexion réussie:', response)
       
-      // Redirection vers le dashboard
-      navigate('/dashboard', { 
+      // Redirection vers le feed
+      navigate('/feed', { 
         replace: true
       })
       
