@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+// src/components/Friends.jsx - Version complète et optimisée
+import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import LeftSidebar from './LeftSidebar';
@@ -7,136 +8,212 @@ import RightSidebar from './RightSidebar';
 const Friends = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState('friends'); // 'friends', 'requests', 'suggestions'
+  
+  // États principaux
+  const [activeTab, setActiveTab] = useState('friends');
   const [friends, setFriends] = useState([]);
   const [pendingRequests, setPendingRequests] = useState([]);
   const [suggestions, setSuggestions] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
+  
+  // États de l'interface
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(new Set());
   const [showMobileMenu, setShowMobileMenu] = useState(false);
+  const [error, setError] = useState(null);
+  const [successMessage, setSuccessMessage] = useState('');
 
+  // Configuration de l'API
+  const API_BASE = 'http://localhost:3000/api/v1';
+  
+  // Auto-clear des messages
   useEffect(() => {
-    fetchData();
-  }, [activeTab]);
-
-  const fetchData = async () => {
-    setLoading(true);
-    try {
-      if (activeTab === 'friends') {
-        await fetchFriends();
-      } else if (activeTab === 'requests') {
-        await fetchPendingRequests();
-      } else if (activeTab === 'suggestions') {
-        await fetchSuggestions();
-      }
-    } catch (error) {
-      console.error('Error fetching data:', error);
-    } finally {
-      setLoading(false);
+    if (successMessage) {
+      const timer = setTimeout(() => setSuccessMessage(''), 3000);
+      return () => clearTimeout(timer);
     }
-  };
+  }, [successMessage]);
 
-  const fetchFriends = async () => {
+  // Gestion centralisée des requêtes API
+  const makeAuthenticatedRequest = useCallback(async (url, options = {}) => {
+    const validToken = await checkAndRefreshToken();
+    if (!validToken) throw new Error('Authentication failed');
+
+    return fetch(url, {
+      ...options,
+      headers: {
+        'Authorization': `Bearer ${validToken}`,
+        'Content-Type': 'application/json',
+        ...options.headers
+      }
+    });
+  }, []);
+
+  // Vérification et refresh du token
+  const checkAndRefreshToken = useCallback(async () => {
+    const token = localStorage.getItem('accessToken');
+    const refreshToken = localStorage.getItem('refreshToken');
+    
+    if (!token || !refreshToken) {
+      navigate('/login');
+      return null;
+    }
+
     try {
-      const token = localStorage.getItem('accessToken');
-      const response = await fetch(`/api/v1/follow/${user?.id_user}/following?limit=100`, {
+      const response = await fetch(`${API_BASE}/auth/me`, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
         }
       });
 
+      if (response.status === 403 || response.status === 401) {
+        const refreshResponse = await fetch(`${API_BASE}/auth/refresh`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ refreshToken })
+        });
+
+        if (refreshResponse.ok) {
+          const data = await refreshResponse.json();
+          localStorage.setItem('accessToken', data.accessToken);
+          return data.accessToken;
+        } else {
+          localStorage.removeItem('accessToken');
+          localStorage.removeItem('refreshToken');
+          navigate('/login');
+          return null;
+        }
+      }
+
+      return response.ok ? token : null;
+    } catch (error) {
+      console.error('Token check error:', error);
+      return token;
+    }
+  }, [navigate, API_BASE]);
+
+  // Récupération des amis
+  const fetchFriends = useCallback(async () => {
+    try {
+      const response = await makeAuthenticatedRequest(
+        `${API_BASE}/follow/${user.id_user}/following?limit=100`
+      );
+      
       if (response.ok) {
         const data = await response.json();
         setFriends(data.following || []);
+      } else {
+        throw new Error(`Erreur ${response.status}`);
       }
     } catch (error) {
-      console.error('Error fetching friends:', error);
       setFriends([]);
+      throw error;
     }
-  };
+  }, [user?.id_user, makeAuthenticatedRequest, API_BASE]);
 
-  const fetchPendingRequests = async () => {
+  // Récupération des demandes en attente
+  const fetchPendingRequests = useCallback(async () => {
     try {
-      const token = localStorage.getItem('accessToken');
-      const response = await fetch('/api/v1/follow/requests/pending?limit=100', {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
-      });
-
+      const response = await makeAuthenticatedRequest(
+        `${API_BASE}/follow/requests/pending?limit=100`
+      );
+      
       if (response.ok) {
         const data = await response.json();
         setPendingRequests(data.requests || []);
+      } else {
+        throw new Error(`Erreur ${response.status}`);
       }
     } catch (error) {
-      console.error('Error fetching pending requests:', error);
       setPendingRequests([]);
+      throw error;
     }
-  };
+  }, [makeAuthenticatedRequest, API_BASE]);
 
-  const fetchSuggestions = async () => {
+  // Récupération des suggestions
+  const fetchSuggestions = useCallback(async () => {
     try {
-      const token = localStorage.getItem('accessToken');
-      let response = await fetch('/api/v1/users/suggested?limit=50', {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
-      });
+      let response = await makeAuthenticatedRequest(
+        `${API_BASE}/users/suggested?limit=50`
+      );
 
-      if (!response.ok) {
-        // Fallback to search if suggested endpoint doesn't exist
-        response = await fetch('/api/v1/users/search?limit=50', {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
-          }
-        });
+      // Fallback vers la recherche si suggestions non disponibles
+      if (!response.ok && response.status === 404) {
+        response = await makeAuthenticatedRequest(
+          `${API_BASE}/users/search?limit=50`
+        );
       }
 
       if (response.ok) {
         const data = await response.json();
         setSuggestions(data.users || data || []);
+      } else {
+        throw new Error(`Erreur ${response.status}`);
       }
     } catch (error) {
-      console.error('Error fetching suggestions:', error);
       setSuggestions([]);
+      throw error;
     }
-  };
+  }, [makeAuthenticatedRequest, API_BASE]);
 
-  const handleFollow = async (userId, username) => {
+  // Chargement des données selon l'onglet actif
+  const fetchData = useCallback(async () => {
+    if (!user?.id_user) return;
+    
+    setLoading(true);
+    setError(null);
+    
+    try {
+      const fetchMap = {
+        friends: fetchFriends,
+        requests: fetchPendingRequests,
+        suggestions: fetchSuggestions
+      };
+      
+      await fetchMap[activeTab]?.();
+    } catch (error) {
+      console.error('Error fetching data:', error);
+      setError('Erreur lors du chargement des données');
+    } finally {
+      setLoading(false);
+    }
+  }, [activeTab, user?.id_user, fetchFriends, fetchPendingRequests, fetchSuggestions]);
+
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
+
+  // Actions utilisateur optimisées
+  const handleFollow = useCallback(async (userId, username) => {
     if (actionLoading.has(userId)) return;
     
     setActionLoading(prev => new Set([...prev, userId]));
+    setError(null);
+    
     try {
-      const token = localStorage.getItem('accessToken');
-      const response = await fetch(`/api/v1/follow/${userId}`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
-      });
+      const response = await makeAuthenticatedRequest(
+        `${API_BASE}/follow/${userId}`,
+        { method: 'POST' }
+      );
 
       if (response.ok) {
         const data = await response.json();
-        console.log(`Successfully sent follow request to ${username}`);
-        
-        // Remove from suggestions
         setSuggestions(prev => prev.filter(user => user.id_user !== userId));
         
-        // If it's a pending request, refresh pending requests
         if (data.isPending) {
-          await fetchPendingRequests();
+          setSuccessMessage(`Demande envoyée à ${username}`);
+          fetchPendingRequests();
         } else {
-          await fetchFriends();
+          setSuccessMessage(`Vous suivez maintenant ${username}`);
+          fetchFriends();
         }
+      } else {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || `Erreur ${response.status}`);
       }
     } catch (error) {
-      console.error('Error following user:', error);
+      setError(`Erreur lors du suivi de ${username}: ${error.message}`);
     } finally {
       setActionLoading(prev => {
         const newSet = new Set(prev);
@@ -144,28 +221,60 @@ const Friends = () => {
         return newSet;
       });
     }
-  };
+  }, [makeAuthenticatedRequest, fetchPendingRequests, fetchFriends, API_BASE]);
 
-  const handleUnfollow = async (userId, username) => {
+  const handleUnfollow = useCallback(async (userId, username) => {
+    if (actionLoading.has(userId) || !window.confirm(`Ne plus suivre ${username} ?`)) return;
+    
+    setActionLoading(prev => new Set([...prev, userId]));
+    setError(null);
+    
+    try {
+      const response = await makeAuthenticatedRequest(
+        `${API_BASE}/follow/${userId}`,
+        { method: 'DELETE' }
+      );
+
+      if (response.ok) {
+        setSuccessMessage(`Vous ne suivez plus ${username}`);
+        fetchFriends();
+      } else {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || `Erreur ${response.status}`);
+      }
+    } catch (error) {
+      setError(`Erreur: ${error.message}`);
+    } finally {
+      setActionLoading(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(userId);
+        return newSet;
+      });
+    }
+  }, [makeAuthenticatedRequest, fetchFriends, API_BASE]);
+
+  const handleAcceptRequest = useCallback(async (userId, username) => {
     if (actionLoading.has(userId)) return;
     
     setActionLoading(prev => new Set([...prev, userId]));
+    setError(null);
+    
     try {
-      const token = localStorage.getItem('accessToken');
-      const response = await fetch(`/api/v1/follow/${userId}`, {
-        method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
-      });
+      const response = await makeAuthenticatedRequest(
+        `${API_BASE}/follow/requests/${userId}/accept`,
+        { method: 'POST' }
+      );
 
       if (response.ok) {
-        console.log(`Successfully unfollowed ${username}`);
-        await fetchFriends();
+        setSuccessMessage(`Demande de ${username} acceptée`);
+        fetchPendingRequests();
+        fetchFriends();
+      } else {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || `Erreur ${response.status}`);
       }
     } catch (error) {
-      console.error('Error unfollowing user:', error);
+      setError(`Erreur: ${error.message}`);
     } finally {
       setActionLoading(prev => {
         const newSet = new Set(prev);
@@ -173,58 +282,29 @@ const Friends = () => {
         return newSet;
       });
     }
-  };
+  }, [makeAuthenticatedRequest, fetchPendingRequests, fetchFriends, API_BASE]);
 
-  const handleAcceptRequest = async (userId, username) => {
+  const handleRejectRequest = useCallback(async (userId, username) => {
     if (actionLoading.has(userId)) return;
     
     setActionLoading(prev => new Set([...prev, userId]));
-    try {
-      const token = localStorage.getItem('accessToken');
-      const response = await fetch(`/api/v1/follow/requests/${userId}/accept`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
-      });
-
-      if (response.ok) {
-        console.log(`Accepted follow request from ${username}`);
-        await fetchPendingRequests();
-        await fetchFriends();
-      }
-    } catch (error) {
-      console.error('Error accepting request:', error);
-    } finally {
-      setActionLoading(prev => {
-        const newSet = new Set(prev);
-        newSet.delete(userId);
-        return newSet;
-      });
-    }
-  };
-
-  const handleRejectRequest = async (userId, username) => {
-    if (actionLoading.has(userId)) return;
+    setError(null);
     
-    setActionLoading(prev => new Set([...prev, userId]));
     try {
-      const token = localStorage.getItem('accessToken');
-      const response = await fetch(`/api/v1/follow/requests/${userId}/reject`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
-      });
+      const response = await makeAuthenticatedRequest(
+        `${API_BASE}/follow/requests/${userId}/reject`,
+        { method: 'POST' }
+      );
 
       if (response.ok) {
-        console.log(`Rejected follow request from ${username}`);
-        await fetchPendingRequests();
+        setSuccessMessage(`Demande de ${username} rejetée`);
+        fetchPendingRequests();
+      } else {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || `Erreur ${response.status}`);
       }
     } catch (error) {
-      console.error('Error rejecting request:', error);
+      setError(`Erreur: ${error.message}`);
     } finally {
       setActionLoading(prev => {
         const newSet = new Set(prev);
@@ -232,33 +312,78 @@ const Friends = () => {
         return newSet;
       });
     }
-  };
+  }, [makeAuthenticatedRequest, fetchPendingRequests, API_BASE]);
 
-  const handleViewProfile = (userId) => {
-    // Navigate to user profile - you might want to create a UserProfile component
-    console.log(`View profile for user ${userId}`);
-    // navigate(`/user/${userId}`);
-  };
+  // Navigation et recherche
+  const handleViewProfile = useCallback((userId) => {
+    navigate(`/user/${userId}`);
+  }, [navigate]);
 
-  const handleSendMessage = (userId) => {
-    navigate('/messages');
-  };
+  const handleSendMessage = useCallback((userId) => {
+    navigate('/messages', { state: { selectedUserId: userId } });
+  }, [navigate]);
 
-  const getInitials = (user) => {
+  const handleSearchUsers = useCallback(async () => {
+    if (!searchTerm.trim()) return;
+    
+    setLoading(true);
+    setError(null);
+    
+    try {
+      const searchParams = new URLSearchParams({
+        search: searchTerm.trim(),
+        limit: 50
+      });
+      
+      const response = await makeAuthenticatedRequest(
+        `${API_BASE}/users/search?${searchParams}`
+      );
+
+      const contentType = response.headers.get('content-type');
+      if (!contentType?.includes('application/json')) {
+        throw new Error('Réponse serveur invalide');
+      }
+
+      if (response.ok) {
+        const data = await response.json();
+        setSuggestions(data.users || []);
+        setActiveTab('suggestions');
+        
+        const count = (data.users || []).length;
+        if (count === 0) {
+          setError(`Aucun utilisateur trouvé pour "${searchTerm}"`);
+        } else {
+          setSuccessMessage(`${count} utilisateur(s) trouvé(s)`);
+        }
+      } else {
+        const errorData = await response.json();
+        throw new Error(errorData.message || `Erreur ${response.status}`);
+      }
+    } catch (error) {
+      setError(error.message.includes('<!doctype') 
+        ? 'Erreur de connexion au serveur' 
+        : error.message);
+    } finally {
+      setLoading(false);
+    }
+  }, [searchTerm, makeAuthenticatedRequest, API_BASE]);
+
+  // Fonctions utilitaires
+  const getInitials = useCallback((user) => {
     if (user?.prenom && user?.nom) {
       return `${user.prenom[0]}${user.nom[0]}`.toUpperCase();
     }
     return user?.username?.[0]?.toUpperCase() || 'U';
-  };
+  }, []);
 
-  const getDisplayName = (user) => {
+  const getDisplayName = useCallback((user) => {
     if (user?.prenom && user?.nom) {
       return `${user.prenom} ${user.nom}`;
     }
     return user?.username || 'Utilisateur';
-  };
+  }, []);
 
-  const getRandomGradient = (index) => {
+  const getRandomGradient = useCallback((index) => {
     const gradients = [
       'from-blue-400 to-purple-500',
       'from-pink-400 to-red-500',
@@ -268,8 +393,9 @@ const Friends = () => {
       'from-indigo-400 to-purple-500'
     ];
     return gradients[index % gradients.length];
-  };
+  }, []);
 
+  // Données et configuration
   const getCurrentData = () => {
     switch (activeTab) {
       case 'friends':
@@ -312,7 +438,7 @@ const Friends = () => {
     },
     { 
       id: 'suggestions', 
-      label: 'Suggestions', 
+      label: 'Découvrir', 
       count: suggestions.length,
       icon: (
         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -388,6 +514,74 @@ const Friends = () => {
               <p className="text-gray-600">Gérez vos connexions et découvrez de nouveaux amis</p>
             </div>
 
+            {/* Search Bar */}
+            <div className="mb-6">
+              <div className="flex space-x-2">
+                <div className="flex-1 relative">
+                  <input
+                    type="text"
+                    placeholder="Rechercher des utilisateurs..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    onKeyPress={(e) => e.key === 'Enter' && handleSearchUsers()}
+                    className="w-full pl-10 pr-4 py-3 bg-white border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all text-sm"
+                  />
+                  <svg className="w-5 h-5 text-gray-400 absolute left-3 top-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                  </svg>
+                </div>
+                <button
+                  onClick={handleSearchUsers}
+                  disabled={!searchTerm.trim() || loading}
+                  className="px-6 py-3 bg-blue-500 text-white rounded-xl hover:bg-blue-600 transition-colors text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Rechercher
+                </button>
+              </div>
+            </div>
+
+            {/* Messages d'état */}
+            {error && (
+              <div className="mb-4 p-4 bg-red-100 border border-red-200 rounded-lg">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center">
+                    <svg className="w-5 h-5 text-red-600 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <p className="text-red-700">{error}</p>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <button 
+                      onClick={() => {
+                        setError(null);
+                        fetchData();
+                      }}
+                      className="text-red-600 hover:text-red-800 text-sm underline"
+                    >
+                      Réessayer
+                    </button>
+                    <button 
+                      onClick={() => setError(null)}
+                      className="text-red-600 hover:text-red-800 text-lg font-bold"
+                    >
+                      ×
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {successMessage && (
+              <div className="mb-4 p-4 bg-green-100 border border-green-200 rounded-lg">
+                <div className="flex items-center">
+                  <svg className="w-5 h-5 text-green-600 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                  </svg>
+                  <p className="text-green-700">{successMessage}</p>
+                </div>
+              </div>
+            )}
+
             {/* Tabs */}
             <div className="mb-6">
               <div className="flex space-x-1 bg-gray-100 rounded-lg p-1">
@@ -402,11 +596,10 @@ const Friends = () => {
                     }`}
                   >
                     {tab.icon}
-                    <span className="hidden sm:inline">{tab.label}</span>
-                    <span className="sm:hidden">{tab.label.split(' ')[0]}</span>
+                    <span>{tab.label}</span>
                     {tab.count > 0 && (
-                      <span className={`ml-2 px-2 py-0.5 rounded-full text-xs font-bold ${
-                        activeTab === tab.id ? 'bg-gray-100 text-gray-700' : 'bg-white text-gray-600'
+                      <span className={`text-xs px-2 py-0.5 rounded-full ${
+                        activeTab === tab.id ? 'bg-blue-100 text-blue-600' : 'bg-gray-200 text-gray-600'
                       }`}>
                         {tab.count}
                       </span>
@@ -416,36 +609,12 @@ const Friends = () => {
               </div>
             </div>
 
-            {/* Search */}
-            <div className="mb-6">
-              <div className="relative">
-                <input
-                  type="text"
-                  placeholder={`Rechercher dans ${tabConfig.find(t => t.id === activeTab)?.label.toLowerCase()}...`}
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full pl-10 pr-4 py-3 bg-white border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all text-sm lg:text-base"
-                />
-                <svg className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                </svg>
-              </div>
-            </div>
-
             {/* Content */}
-            <div className="bg-white rounded-xl lg:rounded-2xl shadow-sm border border-gray-100">
+            <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
               {loading ? (
-                <div className="p-6 space-y-4">
-                  {[1, 2, 3, 4].map((i) => (
-                    <div key={i} className="flex items-center space-x-4 animate-pulse">
-                      <div className="w-12 h-12 lg:w-16 lg:h-16 bg-gray-200 rounded-full"></div>
-                      <div className="flex-1">
-                        <div className="h-4 bg-gray-200 rounded w-32 mb-2"></div>
-                        <div className="h-3 bg-gray-200 rounded w-24"></div>
-                      </div>
-                      <div className="w-20 h-8 bg-gray-200 rounded-full"></div>
-                    </div>
-                  ))}
+                <div className="p-8 text-center">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto mb-4"></div>
+                  <p className="text-gray-500">Chargement...</p>
                 </div>
               ) : filteredData.length === 0 ? (
                 <div className="text-center py-12 lg:py-16">
@@ -455,12 +624,12 @@ const Friends = () => {
                   <h3 className="text-lg lg:text-xl font-bold text-gray-900 mb-2">
                     {activeTab === 'friends' ? 'Aucun ami pour le moment' : 
                      activeTab === 'requests' ? 'Aucune demande en attente' : 
-                     'Aucune suggestion'}
+                     'Aucun résultat'}
                   </h3>
                   <p className="text-gray-600 max-w-md mx-auto text-sm lg:text-base px-4">
                     {activeTab === 'friends' ? 'Commencez à suivre des personnes pour voir vos amis ici' : 
                      activeTab === 'requests' ? 'Les demandes d\'amitié apparaîtront ici' : 
-                     'Aucune suggestion disponible pour le moment'}
+                     searchTerm ? `Aucun utilisateur trouvé pour "${searchTerm}"` : 'Utilisez la recherche pour découvrir de nouveaux amis'}
                   </p>
                 </div>
               ) : (
@@ -477,10 +646,10 @@ const Friends = () => {
                             <img 
                               src={person.photo_profil} 
                               alt={getDisplayName(person)}
-                              className="w-full h-full object-cover"
+                              className="w-full h-full object-cover" 
                             />
                           ) : (
-                            <span className="text-white font-bold text-sm lg:text-lg">
+                            <span className="text-white font-bold text-lg lg:text-xl">
                               {getInitials(person)}
                             </span>
                           )}
@@ -490,45 +659,45 @@ const Friends = () => {
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center space-x-2 mb-1">
                             <h3 
-                              className="font-bold text-gray-900 truncate cursor-pointer hover:text-blue-600 transition-colors text-sm lg:text-base"
+                              className="font-semibold text-gray-900 truncate cursor-pointer hover:text-blue-600 transition-colors"
                               onClick={() => handleViewProfile(person.id_user)}
                             >
                               {getDisplayName(person)}
                             </h3>
                             {person.certified && (
                               <svg className="w-4 h-4 text-blue-500 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                                <path fillRule="evenodd" d="M6.267 3.455a3.066 3.066 0 001.745-.723 3.066 3.066 0 013.976 0 3.066 3.066 0 001.745.723 3.066 3.066 0 012.812 2.812c.051.643.304 1.254.723 1.745a3.066 3.066 0 010 3.976 3.066 3.066 0 00-.723 1.745 3.066 3.066 0 01-2.812 2.812 3.066 3.066 0 00-1.745.723 3.066 3.066 0 01-3.976 0 3.066 3.066 0 00-1.745-.723 3.066 3.066 0 01-2.812-2.812 3.066 3.066 0 00-.723-1.745 3.066 3.066 0 010-3.976 3.066 3.066 0 00.723-1.745 3.066 3.066 0 012.812-2.812zm7.44 5.252a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                                <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
                               </svg>
                             )}
                           </div>
-                          <p className="text-xs lg:text-sm text-gray-500 truncate">@{person.username}</p>
+                          <p className="text-sm text-gray-600 truncate">@{person.username}</p>
                           {person.bio && (
-                            <p className="text-xs lg:text-sm text-gray-600 mt-1 truncate">{person.bio}</p>
+                            <p className="text-sm text-gray-500 mt-1 line-clamp-2">{person.bio}</p>
                           )}
-                          {activeTab === 'requests' && person.requestDate && (
-                            <p className="text-xs text-gray-500 mt-1">
-                              Demande envoyée le {new Date(person.requestDate).toLocaleDateString('fr-FR')}
+                          {person.followerCount !== undefined && (
+                            <p className="text-xs text-gray-400 mt-1">
+                              {person.followerCount} followers
                             </p>
                           )}
                         </div>
 
-                        {/* Actions */}
+                        {/* Action Buttons */}
                         <div className="flex items-center space-x-2 flex-shrink-0">
                           {activeTab === 'friends' && (
                             <>
                               <button
                                 onClick={() => handleSendMessage(person.id_user)}
-                                className="p-2 lg:p-2.5 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded-full transition-all"
+                                className="p-2 text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded-full transition-all"
                                 title="Envoyer un message"
                               >
-                                <svg className="w-4 h-4 lg:w-5 lg:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
                                 </svg>
                               </button>
                               <button
-                                onClick={() => handleUnfollow(person.id_user, person.username)}
+                                onClick={() => handleUnfollow(person.id_user, getDisplayName(person))}
                                 disabled={actionLoading.has(person.id_user)}
-                                className="px-3 lg:px-4 py-1.5 lg:py-2 text-xs lg:text-sm font-medium text-red-600 hover:text-red-700 hover:bg-red-50 rounded-full transition-all disabled:opacity-50"
+                                className="px-3 lg:px-4 py-1.5 lg:py-2 text-xs lg:text-sm font-medium text-red-600 hover:text-red-800 hover:bg-red-50 rounded-full transition-all disabled:opacity-50"
                               >
                                 {actionLoading.has(person.id_user) ? 'Chargement...' : 'Ne plus suivre'}
                               </button>
@@ -538,14 +707,14 @@ const Friends = () => {
                           {activeTab === 'requests' && (
                             <>
                               <button
-                                onClick={() => handleAcceptRequest(person.id_user, person.username)}
+                                onClick={() => handleAcceptRequest(person.id_user, getDisplayName(person))}
                                 disabled={actionLoading.has(person.id_user)}
                                 className="px-3 lg:px-4 py-1.5 lg:py-2 text-xs lg:text-sm font-medium bg-blue-500 text-white rounded-full hover:bg-blue-600 transition-all disabled:opacity-50"
                               >
                                 {actionLoading.has(person.id_user) ? '...' : 'Accepter'}
                               </button>
                               <button
-                                onClick={() => handleRejectRequest(person.id_user, person.username)}
+                                onClick={() => handleRejectRequest(person.id_user, getDisplayName(person))}
                                 disabled={actionLoading.has(person.id_user)}
                                 className="px-3 lg:px-4 py-1.5 lg:py-2 text-xs lg:text-sm font-medium text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-full transition-all disabled:opacity-50"
                               >
@@ -555,21 +724,149 @@ const Friends = () => {
                           )}
 
                           {activeTab === 'suggestions' && (
-                            <button
-                              onClick={() => handleFollow(person.id_user, person.username)}
-                              disabled={actionLoading.has(person.id_user)}
-                              className="px-3 lg:px-4 py-1.5 lg:py-2 text-xs lg:text-sm font-medium bg-black text-white rounded-full hover:bg-gray-800 transition-all disabled:opacity-50"
-                            >
-                              {actionLoading.has(person.id_user) ? 'Chargement...' : 'Suivre'}
-                            </button>
+                            <>
+                              <button
+                                onClick={() => handleViewProfile(person.id_user)}
+                                className="p-2 text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded-full transition-all"
+                                title="Voir le profil"
+                              >
+                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                                </svg>
+                              </button>
+                              <button
+                                onClick={() => handleFollow(person.id_user, getDisplayName(person))}
+                                disabled={actionLoading.has(person.id_user)}
+                                className="px-3 lg:px-4 py-1.5 lg:py-2 text-xs lg:text-sm font-medium bg-black text-white rounded-full hover:bg-gray-800 transition-all disabled:opacity-50"
+                              >
+                                {actionLoading.has(person.id_user) ? 'Chargement...' : 'Suivre'}
+                              </button>
+                            </>
                           )}
                         </div>
                       </div>
+
+                      {/* Additional info for requests */}
+                      {activeTab === 'requests' && person.requestDate && (
+                        <div className="mt-3 pl-16 lg:pl-20">
+                          <p className="text-xs text-gray-500">
+                            Demande reçue le {new Date(person.requestDate).toLocaleDateString('fr-FR', {
+                              day: 'numeric',
+                              month: 'long',
+                              year: 'numeric'
+                            })}
+                          </p>
+                        </div>
+                      )}
+
+                      {/* Mutual friends indicator */}
+                      {person.mutualFriends && person.mutualFriends > 0 && (
+                        <div className="mt-3 pl-16 lg:pl-20">
+                          <p className="text-xs text-gray-500 flex items-center">
+                            <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z" />
+                            </svg>
+                            {person.mutualFriends} ami{person.mutualFriends > 1 ? 's' : ''} en commun
+                          </p>
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>
               )}
             </div>
+
+            {/* Stats Summary */}
+            <div className="mt-6 grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div className="bg-white rounded-lg p-4 border border-gray-200">
+                <div className="flex items-center">
+                  <div className="flex-shrink-0">
+                    <svg className="w-8 h-8 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                    </svg>
+                  </div>
+                  <div className="ml-3">
+                    <p className="text-sm font-medium text-gray-500">Amis</p>
+                    <p className="text-2xl font-semibold text-gray-900">{friends.length}</p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-white rounded-lg p-4 border border-gray-200">
+                <div className="flex items-center">
+                  <div className="flex-shrink-0">
+                    <svg className="w-8 h-8 text-orange-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                  </div>
+                  <div className="ml-3">
+                    <p className="text-sm font-medium text-gray-500">Demandes</p>
+                    <p className="text-2xl font-semibold text-gray-900">{pendingRequests.length}</p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-white rounded-lg p-4 border border-gray-200">
+                <div className="flex items-center">
+                  <div className="flex-shrink-0">
+                    <svg className="w-8 h-8 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                    </svg>
+                  </div>
+                  <div className="ml-3">
+                    <p className="text-sm font-medium text-gray-500">Suggestions</p>
+                    <p className="text-2xl font-semibold text-gray-900">{suggestions.length}</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Quick Actions */}
+            <div className="mt-6 bg-gradient-to-r from-blue-50 to-purple-50 rounded-xl p-6 border border-blue-100">
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">Actions rapides</h3>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <button
+                  onClick={() => {
+                    setActiveTab('suggestions');
+                    if (suggestions.length === 0) {
+                      fetchSuggestions();
+                    }
+                  }}
+                  className="flex items-center space-x-3 p-3 bg-white rounded-lg hover:bg-gray-50 transition-colors text-left"
+                >
+                  <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
+                    <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                    </svg>
+                  </div>
+                  <div>
+                    <p className="font-medium text-gray-900">Découvrir des amis</p>
+                    <p className="text-sm text-gray-600">Trouvez de nouvelles personnes</p>
+                  </div>
+                </button>
+
+                <button
+                  onClick={() => {
+                    setSearchTerm('');
+                    setActiveTab('suggestions');
+                    fetchData();
+                  }}
+                  className="flex items-center space-x-3 p-3 bg-white rounded-lg hover:bg-gray-50 transition-colors text-left"
+                >
+                  <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
+                    <svg className="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                    </svg>
+                  </div>
+                  <div>
+                    <p className="font-medium text-gray-900">Actualiser</p>
+                    <p className="text-sm text-gray-600">Recharger les suggestions</p>
+                  </div>
+                </button>
+              </div>
+            </div>
+
           </div>
         </main>
 
