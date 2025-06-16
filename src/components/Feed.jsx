@@ -199,13 +199,14 @@ const Feed = () => {
         const data = await response.json();
         console.log('✅ Like response data:', data);
         
+        // ✅ CORRECTION: Mise à jour correcte du state avec la réponse API
         setPosts(prev => 
           prev.map(post => 
             post.id_post === postId 
               ? { 
                   ...post, 
-                  isLikedByCurrentUser: data.isLiked || data.liked || !post.isLikedByCurrentUser,
-                  likeCount: data.likeCount || data.likesCount || (data.isLiked ? post.likeCount + 1 : post.likeCount - 1)
+                  isLikedByCurrentUser: data.isLiked,
+                  likeCount: data.likeCount
                 }
               : post
           )
@@ -229,29 +230,7 @@ const Feed = () => {
     }));
   };
 
-  // ✅ NOUVEAU: Vérifier le statut de suivi
-  const checkFollowStatus = useCallback(async (targetId) => {
-    try {
-      const token = localStorage.getItem('accessToken')
-      if (!token) return
-
-      const response = await fetch(`/api/v1/follow/status/${targetId}`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
-      })
-
-      if (response.ok) {
-        const data = await response.json()
-        setIsFollowing(data.isFollowing || false)
-      }
-    } catch (error) {
-      console.error('Error checking follow status:', error)
-    }
-  }, [])
-
-  // ✅ CORRECTION: Fonction pour poster un commentaire avec la bonne URL
+  // ✅ CORRECTION: Fonction pour poster un commentaire 
   const handleComment = async (postId) => {
     const comment = newComment[postId];
     if (!comment?.trim() || isPostingComment[postId]) return;
@@ -261,15 +240,15 @@ const Feed = () => {
       
       const token = localStorage.getItem('accessToken');
       
-      // ✅ CORRECTION: Utiliser l'endpoint correct pour les réponses
-      const response = await fetch(`/api/v1/posts/${postId}/reply`, {
+      // ✅ CORRECTION: Créer un nouveau post en réponse (temporaire jusqu'à création d'un système de commentaires)
+      const response = await fetch('/api/v1/posts', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          content: comment.trim()
+          content: `@${posts.find(p => p.id_post === postId)?.author?.username} ${comment.trim()}`
         })
       });
 
@@ -277,12 +256,12 @@ const Feed = () => {
         const responseData = await response.json();
         console.log('✅ Comment posted successfully:', responseData);
         
-        // Actualiser les posts pour afficher le nouveau commentaire
-        fetchPosts(true);
+        // Réinitialiser le champ de commentaire
         setNewComment(prev => ({ ...prev, [postId]: '' }));
         
-        // Optionnel: message de succès
-        // setSuccessMessage('Commentaire publié !');
+        // Recharger les posts pour voir le nouveau "commentaire"
+        fetchPosts(true);
+        
       } else {
         const errorData = await response.json().catch(() => ({}));
         console.error('❌ Comment error response:', errorData);
@@ -316,7 +295,7 @@ const Feed = () => {
     }
   };
 
-  // ✅ CORRECTION: Navigation vers le profil d'un utilisateur (debug amélioré)
+  // ✅ CORRECTION: Navigation vers le profil d'un utilisateur (corrigée)
   const navigateToProfile = (userId, username) => {
     console.log('🔄 Navigating to profile:', { userId, username, currentUserId: user?.id_user });
     
@@ -326,13 +305,18 @@ const Feed = () => {
       return;
     }
 
-    if (parseInt(userId) === parseInt(user?.id_user)) {
+    // ✅ CORRECTION: Vérification de l'ID utilisateur plus robuste
+    const currentUserId = user?.id_user;
+    const targetUserId = userId;
+
+    if (currentUserId && targetUserId && 
+        (currentUserId.toString() === targetUserId.toString())) {
       console.log('➡️ Navigating to own profile');
       navigate('/profile');
     } else {
-      console.log('➡️ Navigating to other user profile:', userId);
-      // Naviguer vers le profil d'un autre utilisateur
-      navigate(`/profile/${userId}`, { state: { username } });
+      console.log('➡️ Navigating to other user profile:', targetUserId);
+      // ✅ CORRECTION: Utiliser la nouvelle route ProfileUser
+      navigate(`/user/${targetUserId}`, { state: { username } });
     }
   };
 
@@ -507,7 +491,7 @@ const Feed = () => {
             {/* ✅ NOUVEAU: Composer un nouveau post avec sticky behavior */}
             <div 
               ref={postBoxRef}
-              className={`transition-all duration-300 ease-in-out ${
+              className={`transition-all duration-800 ease-in-out ${
                 isPostBoxSticky 
                   ? 'fixed bottom-4 left-4 right-4 lg:left-72 lg:right-88 z-50 shadow-2xl' 
                   : 'relative mb-6'
@@ -696,22 +680,22 @@ const Feed = () => {
                       {/* Actions du post */}
                       <footer className="flex items-center justify-between pt-3 lg:pt-4 border-t border-gray-100">
                         <div className="flex items-center space-x-6">
-                          {/* ✅ NOUVEAU: Bouton Like connecté */}
+                          {/* ✅ CORRECTION: Bouton Like connecté avec logique mise à jour */}
                           <button 
                             onClick={() => handleLike(post.id_post)}
                             className={`flex items-center space-x-2 transition-colors text-sm lg:text-base ${
-                              post.isLikedByCurrentUser 
+                              post.isLikedByCurrentUser || post.isLiked
                                 ? 'text-red-500 hover:text-red-600' 
                                 : 'text-gray-500 hover:text-red-500'
                             }`}
                           >
-                            <svg className="w-5 h-5 lg:w-6 lg:h-6" fill={post.isLikedByCurrentUser ? 'currentColor' : 'none'} stroke="currentColor" viewBox="0 0 24 24">
+                            <svg className="w-5 h-5 lg:w-6 lg:h-6" fill={post.isLikedByCurrentUser || post.isLiked ? 'currentColor' : 'none'} stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
                             </svg>
-                            <span className="font-medium">{post.likeCount || 0}</span>
+                            <span className="font-medium">{post.likeCount || post.likesCount || 0}</span>
                           </button>
 
-                          {/* ✅ NOUVEAU: Bouton Commentaires connecté */}
+                          {/* ✅ CORRECTION: Bouton Commentaires connecté */}
                           <button 
                             onClick={() => toggleComments(post.id_post)}
                             className="flex items-center space-x-2 text-gray-500 hover:text-blue-500 transition-colors text-sm lg:text-base"
@@ -719,10 +703,10 @@ const Feed = () => {
                             <svg className="w-5 h-5 lg:w-6 lg:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
                             </svg>
-                            <span className="font-medium">{post.replyCount || 0}</span>
+                            <span className="font-medium">{post.replyCount || post.commentCount || 0}</span>
                           </button>
 
-                          {/* ✅ NOUVEAU: Bouton Partager connecté */}
+                          {/* ✅ CORRECTION: Bouton Partager connecté */}
                           <button 
                             onClick={() => handleShare(post)}
                             className="flex items-center space-x-2 text-gray-500 hover:text-green-500 transition-colors text-sm lg:text-base"
@@ -734,7 +718,7 @@ const Feed = () => {
                         </div>
                       </footer>
 
-                      {/* ✅ NOUVEAU: Section des commentaires */}
+                      {/* ✅ CORRECTION: Section des commentaires */}
                       {showComments[post.id_post] && (
                         <div className="mt-4 pt-4 border-t border-gray-100">
                           {/* Zone de saisie de commentaire */}
@@ -778,7 +762,7 @@ const Feed = () => {
                           <div className="space-y-3">
                             {/* Ici vous pourriez afficher les commentaires existants */}
                             <div className="text-center text-gray-500 text-sm py-4">
-                              <p>Les commentaires apparaîtront ici</p>
+                              <p>Les commentaires apparaîtront ici une fois le système de commentaires implémenté dans l'API</p>
                             </div>
                           </div>
                         </div>
