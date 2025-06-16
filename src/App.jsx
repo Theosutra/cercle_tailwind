@@ -31,9 +31,19 @@ function App() {
             } 
           />
           
-          {/* Profil utilisateur */}
+          {/* Profil utilisateur personnel */}
           <Route 
             path="/profile" 
+            element={
+              <ProtectedRoute>
+                <Profile />
+              </ProtectedRoute>
+            } 
+          />
+          
+          {/* ✅ NOUVEAU: Profil d'un autre utilisateur */}
+          <Route 
+            path="/profile/:userId" 
             element={
               <ProtectedRoute>
                 <Profile />
