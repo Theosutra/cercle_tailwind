@@ -473,7 +473,7 @@ const Messages = () => {
           </svg>
         </button>
         
-        <h1 className="text-xl font-bold text-gray-900">Messages</h1>
+        <h1 className="text-2xl font-bold text-gray-900">Messages</h1>
         
         <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center">
           {user?.photo_profil ? (

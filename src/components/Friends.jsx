@@ -510,7 +510,7 @@ const Friends = () => {
 
             {/* Header */}
             <div className="mb-6 lg:mb-8">
-              <h1 className="text-2xl lg:text-3xl font-bold text-gray-900 mb-2">Mes Amis</h1>
+              <h1 className="text-2xl font-bold text-gray-900">Mes Amis</h1>
               <p className="text-gray-600">Gérez vos connexions et découvrez de nouveaux amis</p>
             </div>
 
