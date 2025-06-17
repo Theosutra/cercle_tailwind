@@ -533,7 +533,7 @@ const Friends = () => {
                 <button
                   onClick={handleSearchUsers}
                   disabled={!searchTerm.trim() || loading}
-                  className="px-6 py-3 bg-blue-500 text-white rounded-xl hover:bg-blue-600 transition-colors text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="px-6 py-3 bg-black text-white rounded-xl hover:bg-grey transition-colors text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   Rechercher
                 </button>

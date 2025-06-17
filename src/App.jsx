@@ -1,4 +1,4 @@
-// src/App.jsx - Mise à jour avec ProfileUser
+// src/App.jsx - Mise à jour avec ProfileUser et PostDetail
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom'
 import { AuthProvider } from './context/AuthContext'
 import Home from './components/Home'
@@ -6,7 +6,8 @@ import Login from './components/Login'
 import Register from './components/Register'
 import About from './components/About'
 import Profile from './components/Profile'
-import ProfileUser from './components/ProfileUser' // ✅ NOUVEAU: Import du composant ProfileUser
+import ProfileUser from './components/ProfileUser' // ✅ Import du composant ProfileUser
+import PostDetail from './components/PostDetail' // ✅ NOUVEAU: Import du composant PostDetail
 import Feed from './components/Feed'
 import Messages from './components/Messages'
 import Friends from './components/Friends'
@@ -33,6 +34,16 @@ function App() {
             } 
           />
           
+          {/* ✅ NOUVEAU: Page détail d'un post individuel */}
+          <Route 
+            path="/post/:postId" 
+            element={
+              <ProtectedRoute>
+                <PostDetail />
+              </ProtectedRoute>
+            } 
+          />
+          
           {/* ✅ Profil utilisateur personnel (utilisateur connecté uniquement) */}
           <Route 
             path="/profile" 
@@ -43,7 +54,7 @@ function App() {
             } 
           />
           
-          {/* ✅ NOUVEAU: Profil d'un autre utilisateur (composant séparé) */}
+          {/* ✅ Profil d'un autre utilisateur (composant séparé) */}
           <Route 
             path="/profile/:userId" 
             element={
