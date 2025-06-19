@@ -12,6 +12,7 @@ import Feed from './components/Feed'
 import Messages from './components/Messages'
 import Friends from './components/Friends'
 import Parametres from './components/Parametres'
+import AdminDashboard from './components/AdminDashboard' // ✅ NOUVEAU: Import du composant AdminDashboard
 import ProtectedRoute from './components/ProtectedRoute'
 
 function App() {
@@ -100,6 +101,16 @@ function App() {
             element={
               <ProtectedRoute>
                 <Parametres />
+              </ProtectedRoute>
+            } 
+          />
+
+          {/* ✅ NOUVEAU: Route Admin Dashboard */}
+          <Route 
+            path="/admin/dashboard" 
+            element={
+              <ProtectedRoute>
+                <AdminDashboard />
               </ProtectedRoute>
             } 
           />

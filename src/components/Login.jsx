@@ -46,15 +46,30 @@ const Login = () => {
       const response = await login(credentials)
       
       console.log('Connexion réussie:', response)
+      console.log('Redirect info:', response.redirect) // Debug pour voir les infos de redirection
       
-      // Redirection vers le feed
-      navigate('/feed', { 
-        replace: true
-      })
+      // ✅ AJOUT: Vérifier la redirection AVANT de naviguer
+      if (response.redirect && response.redirect.should_redirect) {
+        console.log(`🔄 Redirecting ${response.user.role} to admin dashboard`)
+        navigate(response.redirect.redirect_to)
+      } else {
+        // Redirection normale vers le feed pour les utilisateurs
+        navigate('/feed', { 
+          replace: true
+        })
+      }
       
     } catch (error) {
       console.error('Erreur de connexion:', error)
-      setError(error.message || 'Une erreur est survenue lors de la connexion')
+      
+      // ✅ AJOUT: Gestion spéciale pour les comptes bannis
+      if (error.response?.data?.ban_info) {
+        const banInfo = error.response.data.ban_info
+        const endDate = new Date(banInfo.end_date).toLocaleDateString('fr-FR')
+        setError(`Compte banni jusqu'au ${endDate}. Raison: ${banInfo.reason}`)
+      } else {
+        setError(error.response?.data?.message || error.message || 'Une erreur est survenue lors de la connexion')
+      }
     } finally {
       setLoading(false)
     }
