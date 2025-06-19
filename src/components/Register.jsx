@@ -102,9 +102,12 @@ const Register = () => {
       
       console.log('Inscription réussie:', response)
       
-      // Redirection vers le dashboard
-      navigate('/dashboard', { 
-        replace: true
+      // ✅ SEULE MODIFICATION: Redirection vers l'onboarding au lieu du feed
+      navigate('/onboarding', { 
+        replace: true,
+        state: { 
+          message: `Bienvenue ${response.user.prenom} ! Configurons votre profil.` 
+        }
       })
       
     } catch (error) {
