@@ -695,7 +695,7 @@ const Messages = () => {
                   <h2 className="text-xl font-bold text-gray-900">Messages</h2>
                   <button 
                     onClick={handleOpenUserSearch}
-                    className="p-2.5 rounded-full bg-black-600 hover:bg-black-700 transition-colors group"
+                    className="p-2.5 rounded-full bg-black hover:bg-black-700 transition-colors group"
                     title="Nouvelle conversation"
                   >
                     <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
