@@ -1,5 +1,3 @@
-// src/stores/feedStore.js - Store Zustand avec gestion des erreurs 401
-
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 
@@ -45,7 +43,6 @@ const useFeedStore = create(
         const refreshToken = localStorage.getItem('refreshToken');
         
         if (!refreshToken) {
-          // Pas de refresh token, rediriger vers login
           localStorage.clear();
           window.location.href = '/login';
           throw new Error('Session expirée');
@@ -63,7 +60,6 @@ const useFeedStore = create(
             localStorage.setItem('accessToken', accessToken);
             return accessToken;
           } else {
-            // Refresh token invalide, rediriger vers login
             localStorage.clear();
             window.location.href = '/login';
             throw new Error('Session expirée');
@@ -95,53 +91,45 @@ const useFeedStore = create(
 
         let response = await fetch(url, config);
 
-        // Si 401, essayer de rafraîchir le token
+        // ✅ Gestion automatique des 401
         if (response.status === 401) {
+          console.log('🔄 Token expiré, tentative de refresh...');
+          
           try {
-            token = await handleTokenExpiry();
-            
-            // Retry avec le nouveau token
-            const retryConfig = {
-              ...config,
-              headers: {
-                ...config.headers,
-                'Authorization': `Bearer ${token}`
-              }
-            };
-            
-            response = await fetch(url, retryConfig);
-          } catch (error) {
-            throw error;
+            const newToken = await handleTokenExpiry();
+            // Refaire la requête avec le nouveau token
+            config.headers['Authorization'] = `Bearer ${newToken}`;
+            response = await fetch(url, config);
+          } catch (refreshError) {
+            throw refreshError;
           }
         }
 
         return response;
       },
 
-      // Actions pour les likes
+      // Gestion des likes
       addPendingLike: (postId) => set((state) => ({
         pendingLikes: new Set([...state.pendingLikes, postId])
       })),
-      
+
       removePendingLike: (postId) => set((state) => {
         const newPending = new Set(state.pendingLikes);
         newPending.delete(postId);
         return { pendingLikes: newPending };
       }),
 
-      // Optimistic update du like
       toggleLikeOptimistic: (postId) => set((state) => ({
         posts: state.posts.map(post => {
           if (post.id_post === postId) {
-            const wasLiked = post.isLikedByCurrentUser || post.isLiked;
+            const currentlyLiked = post.isLikedByCurrentUser;
             return {
               ...post,
-              isLiked: !wasLiked,
-              isLikedByCurrentUser: !wasLiked,
-              likeCount: wasLiked 
-                ? Math.max(0, (post.likeCount || 0) - 1) 
+              isLikedByCurrentUser: !currentlyLiked,
+              likeCount: currentlyLiked 
+                ? Math.max(0, (post.likeCount || 0) - 1)
                 : (post.likeCount || 0) + 1,
-              likesCount: wasLiked 
+              likesCount: currentlyLiked 
                 ? Math.max(0, (post.likesCount || 0) - 1) 
                 : (post.likesCount || 0) + 1
             };
@@ -150,37 +138,33 @@ const useFeedStore = create(
         })
       })),
 
-      // Synchroniser avec la réponse serveur
       syncLikeFromServer: (postId, serverData) => set((state) => ({
         posts: state.posts.map(post => {
           if (post.id_post === postId) {
             return {
               ...post,
-              isLiked: serverData.isLiked,
-              isLikedByCurrentUser: serverData.isLiked,
-              likeCount: serverData.likeCount,
-              likesCount: serverData.likeCount
+              isLikedByCurrentUser: serverData.isLiked || serverData.liked,
+              likeCount: serverData.likeCount || serverData.likesCount || post.likeCount,
+              likesCount: serverData.likeCount || serverData.likesCount || post.likesCount
             };
           }
           return post;
         })
       })),
 
-      // Rollback en cas d'erreur
       rollbackLike: (postId) => set((state) => ({
         posts: state.posts.map(post => {
           if (post.id_post === postId) {
-            const currentlyLiked = post.isLikedByCurrentUser || post.isLiked;
+            const currentlyLiked = post.isLikedByCurrentUser;
             return {
               ...post,
-              isLiked: !currentlyLiked,
               isLikedByCurrentUser: !currentlyLiked,
               likeCount: currentlyLiked 
-                ? (post.likeCount || 0) + 1 
-                : Math.max(0, (post.likeCount || 0) - 1),
+                ? Math.max(0, (post.likeCount || 0) - 1)
+                : (post.likeCount || 0) + 1,
               likesCount: currentlyLiked 
-                ? (post.likesCount || 0) + 1 
-                : Math.max(0, (post.likesCount || 0) - 1)
+                ? Math.max(0, (post.likesCount || 0) - 1) 
+                : (post.likesCount || 0) + 1
             };
           }
           return post;
@@ -195,24 +179,37 @@ const useFeedStore = create(
         setError(null);
 
         try {
-          // Déterminer l'endpoint selon le filtre
+          // ✅ CORRECTION CRITIQUE: Endpoints corrigés
           const endpoints = {
-            recent: '/api/v1/posts/timeline/personal',
-            friends: '/api/v1/posts/timeline/personal',
-            popular: '/api/v1/posts/trending'
+            recent: '/api/v1/posts/public',              // ✅ Posts publics
+            friends: '/api/v1/posts/timeline/personal',  // ✅ Posts des amis
+            popular: '/api/v1/posts/trending'            // ✅ Posts populaires
           };
 
           const endpoint = endpoints[feedFilter] || endpoints.recent;
+          
+          console.log(`🔍 Fetching from: ${endpoint} (filter: ${feedFilter})`);
           
           const response = await authenticatedFetch(`${endpoint}?page=${page}&limit=20`);
 
           if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
+            console.error('❌ API Error:', errorData);
             throw new Error(errorData.message || `Erreur ${response.status}`);
           }
 
           const data = await response.json();
           const newPosts = data.posts || [];
+
+          console.log(`✅ Posts récupérés:`, {
+            count: newPosts.length,
+            endpoint,
+            posts: newPosts.map(p => ({
+              id: p.id_post,
+              author: p.author?.username,
+              content: p.content?.substring(0, 50) + '...'
+            }))
+          });
 
           if (reset) {
             setPosts(newPosts);
@@ -226,8 +223,6 @@ const useFeedStore = create(
             hasNext: data.pagination?.hasNext || false,
             total: data.pagination?.total || 0
           });
-
-          console.log(`✅ ${newPosts.length} posts chargés (page ${page})`);
 
         } catch (error) {
           console.error('❌ Erreur chargement posts:', error);
@@ -283,7 +278,6 @@ const useFeedStore = create(
           authenticatedFetch
         } = get();
 
-        // Éviter les doubles requêtes
         if (pendingLikes.has(postId)) {
           console.log('Like déjà en cours...');
           return;
@@ -291,8 +285,6 @@ const useFeedStore = create(
 
         try {
           addPendingLike(postId);
-          
-          // Optimistic update
           toggleLikeOptimistic(postId);
           
           const response = await authenticatedFetch(`/api/v1/likes/posts/${postId}`, {
@@ -301,11 +293,9 @@ const useFeedStore = create(
 
           if (response.ok) {
             const data = await response.json();
-            // Synchroniser avec le serveur
             syncLikeFromServer(postId, data);
             console.log(`✅ Like ${data.isLiked ? 'ajouté' : 'retiré'}`);
           } else {
-            // Rollback en cas d'erreur
             rollbackLike(postId);
             const errorData = await response.json().catch(() => ({}));
             setError('Erreur lors du like');
@@ -313,7 +303,6 @@ const useFeedStore = create(
           }
 
         } catch (error) {
-          // Rollback en cas d'erreur réseau
           rollbackLike(postId);
           setError('Erreur de connexion');
           console.error('❌ Erreur réseau like:', error);
@@ -335,11 +324,9 @@ const useFeedStore = create(
     {
       name: 'feed-storage',
       storage: createJSONStorage(() => localStorage),
-      // Persister seulement certaines données
       partialize: (state) => ({
         posts: state.posts,
         feedFilter: state.feedFilter,
-        // Ne pas persister les états temporaires
       }),
       version: 1,
     }

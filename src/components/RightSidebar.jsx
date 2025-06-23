@@ -1,3 +1,4 @@
+// src/components/RightSidebar.jsx - VERSION CORRIGÉE COMPLÈTE
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 
@@ -30,7 +31,7 @@ const RightSidebar = () => {
       id: 3, 
       icon: (
         <svg className="w-6 h-6 text-gray-700" fill="currentColor" viewBox="0 0 24 24">
-          <path d="M12 2a5 5 0 015 5c0 1.5-.5 2.9-1.3 4l3.8 3.8c.4.4.4 1 0 1.4-.2.2-.4.3-.7.3s-.5-.1-.7-.3L14.3 12c-.6.4-1.2.7-1.9.8L11 21c0 .6-.4 1-1 1s-1-.4-1-1l-1.4-8.2c-.7-.1-1.3-.4-1.9-.8L2 15.8c-.2.2-.4.3-.7.3s-.5-.1-.7-.3c-.4-.4-.4-1 0-1.4L4.4 11C3.6 9.9 3.1 8.5 3.1 7c0-2.8 2.2-5 5-5s4.9 2.2 4.9 5z"/>
+          <path d="M12 2a5 5 0 015 5c0 1.5-.5 2.9-1.3 4l3.8 3.8c.4.4.4 1 0 1.4-.2.2-.4.3-.7.3s-.5-.1-.7-.3L15.3 13c-1.1.8-2.5 1.3-4 1.3-2.8 0-5-2.2-5-5s2.2-5 5-5z"/>
         </svg>
       ), 
       title: 'Animaux', 
@@ -50,15 +51,26 @@ const RightSidebar = () => {
   const [followedUsers, setFollowedUsers] = useState(new Set());
   const [loading, setLoading] = useState(true);
 
-  // Récupérer de vrais utilisateurs random depuis la base de données
+  // ✅ CORRECTION COMPLÈTE: Récupérer de vrais utilisateurs avec authentification
   useEffect(() => {
     const fetchRandomUsers = async () => {
       try {
         setLoading(true);
         
-        // Appel à l'endpoint pour récupérer des utilisateurs suggérés
+        // ✅ CORRECTION: Vérifier le token d'authentification
         const token = localStorage.getItem('accessToken');
-        const response = await fetch('/api/v1/users/suggested?limit=3', {
+        
+        if (!token) {
+          console.log('❌ No access token available');
+          setSuggestions([]);
+          setLoading(false);
+          return;
+        }
+
+        console.log('🔄 Fetching user suggestions...');
+
+        // ✅ CORRECTION: Essayer l'endpoint suggested en premier
+        let response = await fetch('/api/v1/users/suggested?limit=3', {
           headers: {
             'Authorization': `Bearer ${token}`,
             'Content-Type': 'application/json'
@@ -67,10 +79,13 @@ const RightSidebar = () => {
 
         if (response.ok) {
           const data = await response.json();
-          setSuggestions(data);
+          console.log('✅ Suggestions data:', data);
+          setSuggestions(Array.isArray(data) ? data : data.users || []);
         } else {
-          // Si l'endpoint suggested n'existe pas, essayer de récupérer des utilisateurs via search
-          const searchResponse = await fetch('/api/v1/users/search?limit=3', {
+          console.log('⚠️ Suggested endpoint failed, trying search fallback...');
+          
+          // ✅ FALLBACK: Si suggested ne marche pas, utiliser search
+          const searchResponse = await fetch('/api/v1/users/search?limit=5', {
             headers: {
               'Authorization': `Bearer ${token}`,
               'Content-Type': 'application/json'
@@ -79,13 +94,19 @@ const RightSidebar = () => {
           
           if (searchResponse.ok) {
             const searchData = await searchResponse.json();
-            // Prendre les utilisateurs de la réponse paginée
-            setSuggestions(searchData.users || []);
+            console.log('✅ Search fallback data:', searchData);
+            // Filtrer pour exclure l'utilisateur actuel
+            const filteredUsers = (searchData.users || []).filter(u => 
+              u.id_user !== user?.id_user
+            );
+            setSuggestions(filteredUsers.slice(0, 3));
+          } else {
+            console.error('❌ Both suggested and search endpoints failed');
+            setSuggestions([]);
           }
         }
       } catch (error) {
-        console.error('Error fetching users:', error);
-        // En cas d'erreur, ne pas afficher de suggestions
+        console.error('❌ Error fetching suggestions:', error);
         setSuggestions([]);
       } finally {
         setLoading(false);
@@ -97,9 +118,17 @@ const RightSidebar = () => {
     }
   }, [user]);
 
+  // ✅ CORRECTION: Fonction follow avec gestion d'erreurs améliorée
   const handleFollow = async (userId, username) => {
     try {
+      console.log(`🔄 Attempting to follow user ${userId} (${username})`);
+      
       const token = localStorage.getItem('accessToken');
+      if (!token) {
+        console.error('❌ No access token available for follow');
+        return;
+      }
+
       const response = await fetch(`/api/v1/follow/${userId}`, {
         method: 'POST',
         headers: {
@@ -108,12 +137,23 @@ const RightSidebar = () => {
         }
       });
 
+      console.log('📡 Follow response status:', response.status);
+
       if (response.ok) {
+        const data = await response.json();
+        console.log('✅ Follow response data:', data);
+        
         setFollowedUsers(prev => new Set([...prev, userId]));
-        console.log(`Successfully followed ${username}`);
+        console.log(`✅ Successfully followed ${username}`);
+        
+        // Optionnel: Afficher un message de succès
+        // You can add a toast notification here
+      } else {
+        const errorData = await response.json().catch(() => ({}));
+        console.error('❌ Follow failed:', errorData);
       }
     } catch (error) {
-      console.error('Error following user:', error);
+      console.error('❌ Error following user:', error);
     }
   };
 
@@ -213,6 +253,12 @@ const RightSidebar = () => {
         ) : (
           <div className="text-center py-8">
             <p className="text-gray-500 text-sm">Aucune suggestion pour le moment</p>
+            <button 
+              onClick={() => window.location.reload()} 
+              className="mt-2 text-blue-600 text-sm hover:underline"
+            >
+              Réessayer
+            </button>
           </div>
         )}
       </div>
