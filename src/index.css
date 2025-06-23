@@ -1,1 +1,147 @@
 @import 'tailwindcss';
+
+/* ✅ FORCER LE MODE LIGHT PAR DÉFAUT */
+:root {
+  color-scheme: light;
+}
+
+/* ✅ EMPÊCHER L'APPLICATION AUTOMATIQUE DU DARK MODE DU SYSTÈME */
+@media (prefers-color-scheme: dark) {
+  /* Forcer le mode light SEULEMENT si pas de classe .dark */
+  html:not(.dark) {
+    color-scheme: light !important;
+    background-color: #ffffff !important;
+    color: #000000 !important;
+  }
+  
+  html:not(.dark) body {
+    background-color: #f9fafb !important;
+    color: #111827 !important;
+  }
+  
+  /* ✅ STYLES FORCÉS POUR MODE LIGHT SEULEMENT */
+  html:not(.dark) .bg-gray-50 {
+    background-color: #f9fafb !important;
+  }
+
+  html:not(.dark) .bg-white {
+    background-color: #ffffff !important;
+  }
+
+  html:not(.dark) .bg-gray-800 {
+    background-color: #ffffff !important;
+  }
+
+  html:not(.dark) .bg-gray-900 {
+    background-color: #f9fafb !important;
+  }
+
+  html:not(.dark) .bg-gray-100 {
+    background-color: #f3f4f6 !important;
+  }
+
+  html:not(.dark) .text-gray-100 {
+    color: #111827 !important;
+  }
+
+  html:not(.dark) .text-gray-200 {
+    color: #374151 !important;
+  }
+
+  html:not(.dark) .text-gray-900 {
+    color: #111827 !important;
+  }
+
+  html:not(.dark) .text-gray-700 {
+    color: #374151 !important;
+  }
+
+  html:not(.dark) .text-gray-600 {
+    color: #4b5563 !important;
+  }
+
+  html:not(.dark) .text-gray-500 {
+    color: #6b7280 !important;
+  }
+
+  html:not(.dark) .text-gray-400 {
+    color: #6b7280 !important;
+  }
+
+  html:not(.dark) .border-gray-200 {
+    border-color: #e5e7eb !important;
+  }
+
+  html:not(.dark) .border-gray-700 {
+    border-color: #e5e7eb !important;
+  }
+
+  html:not(.dark) .border-gray-600 {
+    border-color: #d1d5db !important;
+  }
+
+  /* ✅ CORRECTION SPÉCIFIQUE POUR LES HOVERS EN MODE LIGHT */
+  html:not(.dark) .hover\:bg-gray-200:hover {
+    background-color: #e5e7eb !important;
+  }
+
+  html:not(.dark) .hover\:bg-gray-100:hover {
+    background-color: #f3f4f6 !important;
+  }
+
+  html:not(.dark) .hover\:bg-gray-50:hover {
+    background-color: #f9fafb !important;
+  }
+
+  html:not(.dark) .hover\:bg-gray-800:hover {
+    background-color: #374151 !important;
+  }
+
+  /* ✅ BOUTONS NOIRS EN MODE LIGHT */
+  html:not(.dark) .bg-black {
+    background-color: #000000 !important;
+  }
+
+  html:not(.dark) .text-white {
+    color: #ffffff !important;
+  }
+
+  /* ✅ BOUTON BLANC EN MODE LIGHT */
+  html:not(.dark) .bg-white {
+    background-color: #ffffff !important;
+  }
+
+  html:not(.dark) .text-black {
+    color: #000000 !important;
+  }
+
+  html:not(.dark) .border-gray-300 {
+    border-color: #d1d5db !important;
+  }
+
+  html:not(.dark) .hover\:bg-gray-50:hover {
+    background-color: #f9fafb !important;
+  }
+}
+
+/* ✅ STYLES PAR DÉFAUT LIGHT (sans !important pour permettre le basculement) */
+html {
+  background-color: #ffffff;
+  color: #000000;
+}
+
+body {
+  background-color: #f9fafb;
+  color: #111827;
+}
+
+/* ✅ MODE DARK NORMAL (Tailwind prend le relais) */
+html.dark {
+  background-color: #111827;
+  color: #f9fafb;
+}
+
+html.dark body {
+  background-color: #111827;
+  color: #f9fafb;
+}
