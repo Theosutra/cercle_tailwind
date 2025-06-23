@@ -1,8 +1,8 @@
-// src/App.jsx - Version améliorée avec loader de transition et ThemeProvider
+// src/App.jsx - Routes admin corrigées
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom'
 import { AuthProvider } from './context/AuthContext'
 import { LoaderProvider } from './context/LoaderContext'
-import { ThemeProvider } from './context/ThemeContext' // ✅ Ajout du ThemeProvider
+import { ThemeProvider } from './context/ThemeContext'
 import PageLoader from './components/PageLoader'
 
 import Home from './components/Home'
@@ -17,16 +17,18 @@ import Feed from './components/Feed'
 import Messages from './components/Messages'
 import Friends from './components/Friends'
 import Parametres from './components/Parametres'
-import AdminDashboard from './components/AdminDashboard'
+
+// ✅ Import du composant admin modulaire
+import AdminDashboard from './components/admin/AdminDashboard'
+
 import ProtectedRoute from './components/ProtectedRoute'
 
 function App() {
   return (
     <AuthProvider>
       <LoaderProvider>
-        <ThemeProvider> {/* ✅ Wrapper avec le ThemeProvider */}
+        <ThemeProvider>
           <Router>
-            {/* Loader global pour toutes les transitions */}
             <PageLoader />
             
             <Routes>
@@ -115,7 +117,49 @@ function App() {
                 } 
               />
               
-              {/* Dashboard Admin */}
+              {/* ✅ ROUTES ADMIN MODULAIRES */}
+              
+              {/* Dashboard Admin - Vue d'ensemble */}
+              <Route 
+                path="/admin/dashboard" 
+                element={
+                  <ProtectedRoute>
+                    <AdminDashboard />
+                  </ProtectedRoute>
+                } 
+              />
+              
+              {/* Gestion des utilisateurs */}
+              <Route 
+                path="/admin/users" 
+                element={
+                  <ProtectedRoute>
+                    <AdminDashboard />
+                  </ProtectedRoute>
+                } 
+              />
+              
+              {/* Gestion des posts */}
+              <Route 
+                path="/admin/posts" 
+                element={
+                  <ProtectedRoute>
+                    <AdminDashboard />
+                  </ProtectedRoute>
+                } 
+              />
+              
+              {/* Gestion des signalements */}
+              <Route 
+                path="/admin/reports" 
+                element={
+                  <ProtectedRoute>
+                    <AdminDashboard />
+                  </ProtectedRoute>
+                } 
+              />
+              
+              {/* Route admin générale (redirection vers dashboard) */}
               <Route 
                 path="/admin" 
                 element={
