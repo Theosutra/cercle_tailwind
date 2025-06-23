@@ -1,10 +1,12 @@
-// src/components/LeftSidebar.jsx
+// src/components/LeftSideBar.jsx - Votre style original + loader
 import React from 'react';
 import { useAuth } from '../context/AuthContext';
+import { useLoader } from '../context/LoaderContext'; // ✅ NOUVEAU
 import { useNavigate, useLocation } from 'react-router-dom';
 
 const LeftSidebar = () => {
   const { user, logout } = useAuth();
+  const { navigateWithLoader } = useLoader(); // ✅ NOUVEAU
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -61,17 +63,26 @@ const LeftSidebar = () => {
     }
   ];
 
-  const handleNavigation = (path) => {
-    navigate(path);
+  // ✅ NOUVEAU: Fonction de navigation avec loader (garde votre logique originale)
+  const handleNavigation = async (path) => {
+    // Éviter la navigation si on est déjà sur la page
+    if (location.pathname === path) return;
+
+    await navigateWithLoader(
+      () => navigate(path),
+      500 // Temps minimum de chargement (0.5 seconde)
+    );
   };
 
+  // ✅ NOUVEAU: Fonction de déconnexion avec loader
   const handleLogout = async () => {
-    try {
-      await logout();
-      navigate('/', { replace: true });
-    } catch (error) {
-      console.error('Erreur de déconnexion:', error);
-    }
+    await navigateWithLoader(
+      async () => {
+        await logout();
+        navigate('/', { replace: true });
+      },
+      800 // Temps minimum pour la déconnexion
+    );
   };
 
   return (
@@ -81,7 +92,7 @@ const LeftSidebar = () => {
       <div className="p-6 group">
         <div 
           className="flex flex-col items-center text-center space-y-3 p-4 rounded-2xl cursor-pointer transition-all duration-300 hover:bg-gray-50 hover:scale-105 hover:shadow-sm"
-          onClick={() => handleNavigation('/profile')}
+          onClick={() => handleNavigation('/profile')} // ✅ MODIFIÉ: Utilise la nouvelle fonction
         >
           {/* Photo de profil */}
           <div className="relative">
@@ -129,7 +140,7 @@ const LeftSidebar = () => {
           {menuItems.map((item, index) => (
             <li key={index}>
               <button
-                onClick={() => handleNavigation(item.path)}
+                onClick={() => handleNavigation(item.path)} // ✅ MODIFIÉ: Utilise la nouvelle fonction
                 className={`w-full flex items-center justify-start space-x-4 px-6 py-4 rounded-2xl text-left transition-all duration-300 group relative overflow-hidden ${
                   item.isActive 
                     ? 'bg-black text-white shadow-lg' 
@@ -173,7 +184,7 @@ const LeftSidebar = () => {
       <div className="p-6 border-t border-gray-100 group">
         <div 
           className="flex items-center justify-center space-x-3 p-4 rounded-2xl cursor-pointer transition-all duration-300 hover:bg-gray-50 hover:scale-105"
-          onClick={() => handleNavigation('/')}
+          onClick={() => handleNavigation('/')} // ✅ MODIFIÉ: Utilise la nouvelle fonction
         >
           <div className="w-8 h-8 border-2 border-black rounded-full flex items-center justify-center transition-all duration-300 group-hover:border-gray-600 group-hover:shadow-lg group-hover:rotate-12">
             <div className="w-2 h-2 bg-black rounded-full transition-all duration-300 group-hover:bg-gray-600 group-hover:scale-125"></div>
