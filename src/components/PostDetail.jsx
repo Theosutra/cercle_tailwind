@@ -1,11 +1,12 @@
-// src/components/PostDetail.jsx - Endpoints corrigés sans altération du style
+// src/components/PostDetail.jsx - Mis à jour pour conversations hiérarchiques
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import useFeedStore from '../stores/feedStore';
 import LeftSidebar from './LeftSidebar';
 import RightSidebar from './RightSidebar';
+import CommentThread from './CommentThread';
 
 const PostDetail = () => {
   const { postId } = useParams();
@@ -18,10 +19,11 @@ const PostDetail = () => {
   const [error, setError] = useState(null);
   
   // États pour les commentaires
-  const [comments, setComments] = useState([]);
+  const [conversation, setConversation] = useState([]);
   const [isLoadingComments, setIsLoadingComments] = useState(false);
   const [newComment, setNewComment] = useState('');
   const [isPostingComment, setIsPostingComment] = useState(false);
+  const [viewMode, setViewMode] = useState('tree'); // 'tree' ou 'flat'
   
   // États UI
   const [showMobileMenu, setShowMobileMenu] = useState(false);
@@ -52,14 +54,14 @@ const PostDetail = () => {
     return gradients[index % gradients.length];
   };
 
-  const getInitials = (user) => {
-    if (!user) return '?';
-    const firstInitial = user.prenom?.[0]?.toUpperCase() || user.username?.[0]?.toUpperCase() || '';
-    const lastInitial = user.nom?.[0]?.toUpperCase() || '';
+  const getInitials = (userObj) => {
+    if (!userObj) return '?';
+    const firstInitial = userObj.prenom?.[0]?.toUpperCase() || userObj.username?.[0]?.toUpperCase() || '';
+    const lastInitial = userObj.nom?.[0]?.toUpperCase() || '';
     return firstInitial + lastInitial || '?';
   };
 
-  // ✅ CORRECTION: Fonction d'appel API authentifiée réutilisable
+  // Fonction d'appel API authentifiée
   const makeAuthenticatedRequest = async (url, options = {}) => {
     const token = localStorage.getItem('accessToken');
     if (!token) {
@@ -76,7 +78,7 @@ const PostDetail = () => {
     });
   };
 
-  // ✅ CORRECTION: Charger le post principal avec gestion d'erreur améliorée
+  // Charger le post principal
   const fetchPost = async () => {
     try {
       setIsLoading(true);
@@ -87,9 +89,7 @@ const PostDetail = () => {
       if (response.ok) {
         const postData = await response.json();
         setPost(postData);
-        
-        // Mettre à jour le titre de la page
-        document.title = `${postData.author?.username || 'Post'} sur Cercle`;
+        document.title = `${postData.author?.username || 'Post'} sur Breezy`;
       } else if (response.status === 404) {
         setError('Post introuvable');
       } else if (response.status === 401) {
@@ -106,46 +106,50 @@ const PostDetail = () => {
     }
   };
 
-  // ✅ CORRECTION: Charger les commentaires avec endpoint correct
-  const fetchComments = async () => {
+  // Charger la conversation complète (mode arbre)
+  const fetchConversation = async () => {
     try {
       setIsLoadingComments(true);
+      console.log('🔄 Fetching conversation for post:', postId);
       
-      const response = await makeAuthenticatedRequest(`/api/v1/posts/${postId}/replies?limit=50`);
+      const response = await makeAuthenticatedRequest(`/api/v1/posts/${postId}/conversation?maxDepth=999`);
 
       if (response.ok) {
         const data = await response.json();
-        setComments(data.replies || []);
+        console.log('✅ Conversation loaded:', data.conversation?.length || 0, 'top-level comments');
+        setConversation(data.conversation || []);
       } else if (response.status !== 404) {
-        // Si 404, c'est normal (pas de commentaires)
-        console.error('❌ Erreur chargement commentaires:', response.status);
+        console.error('❌ Erreur chargement conversation:', response.status);
       }
     } catch (error) {
-      console.error('❌ Erreur chargement commentaires:', error);
+      console.error('❌ Erreur chargement conversation:', error);
     } finally {
       setIsLoadingComments(false);
     }
   };
 
-  // ✅ CORRECTION: Poster un commentaire avec structure correcte
+  // Poster un commentaire principal
   const handlePostComment = async () => {
     if (!newComment.trim() || isPostingComment) return;
 
     try {
       setIsPostingComment(true);
+      console.log('🔄 Posting main comment to post:', postId);
       
-      const response = await makeAuthenticatedRequest('/api/v1/posts', {
+      const response = await makeAuthenticatedRequest(`/api/v1/posts/${postId}/reply`, {
         method: 'POST',
         body: JSON.stringify({
-          content: newComment.trim(),
-          post_parent: parseInt(postId), // ✅ CORRECTION: Référence au post parent
-          id_message_type: 1
+          content: newComment.trim()
         })
       });
 
       if (response.ok) {
+        const data = await response.json();
+        console.log('✅ Comment posted successfully:', data.reply);
+        
+        // Ajouter le nouveau commentaire à la conversation
+        setConversation(prev => [...prev, { ...data.reply, replies: [] }]);
         setNewComment('');
-        await fetchComments(); // Recharger les commentaires
       } else {
         const errorData = await response.json().catch(() => ({}));
         console.error('❌ Erreur post commentaire:', errorData.message || response.status);
@@ -157,14 +161,13 @@ const PostDetail = () => {
     }
   };
 
-  // ✅ CORRECTION: Fonction de like avec store
+  // Fonction de like
   const handleLike = async () => {
     if (!post || pendingLikes.has(post.id_post)) return;
     
     try {
       await toggleLike(post.id_post);
       
-      // Mettre à jour le post local
       setPost(prev => ({
         ...prev,
         isLiked: !prev.isLiked,
@@ -177,7 +180,7 @@ const PostDetail = () => {
     }
   };
 
-  // ✅ CORRECTION: Fonction de partage améliorée
+  // Fonction de partage
   const handleShare = async () => {
     const shareData = {
       title: `Post de ${post.author?.username}`,
@@ -191,40 +194,60 @@ const PostDetail = () => {
       } else {
         await navigator.clipboard.writeText(window.location.href);
         
-        // Notification simple
         const notification = document.createElement('div');
         notification.textContent = 'Lien copié dans le presse-papiers !';
-        notification.style.cssText = `
-          position: fixed;
-          top: 20px;
-          right: 20px;
-          background: #10b981;
-          color: white;
-          padding: 12px 20px;
-          border-radius: 8px;
-          font-size: 14px;
-          font-weight: 500;
-          z-index: 9999;
-          box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-        `;
-        
+        notification.className = 'fixed top-4 right-4 bg-green-500 text-white px-4 py-2 rounded-lg z-50';
         document.body.appendChild(notification);
-        setTimeout(() => notification.remove(), 3000);
+        setTimeout(() => {
+          document.body.removeChild(notification);
+        }, 3000);
       }
     } catch (error) {
       console.error('❌ Erreur partage:', error);
     }
   };
 
-  // Chargement initial
+  // Callback quand une réponse est ajoutée dans l'arbre
+  const handleReplyAdded = (newReply, parentId) => {
+    console.log('🔄 Adding reply to conversation tree:', newReply.id_post, 'parent:', parentId);
+    
+    // Fonction récursive pour ajouter la réponse au bon endroit dans l'arbre
+    const addReplyToTree = (comments) => {
+      return comments.map(comment => {
+        if (comment.id_post === parentId) {
+          return {
+            ...comment,
+            replies: [...(comment.replies || []), { ...newReply, replies: [] }]
+          };
+        } else if (comment.replies && comment.replies.length > 0) {
+          return {
+            ...comment,
+            replies: addReplyToTree(comment.replies)
+          };
+        }
+        return comment;
+      });
+    };
+
+    setConversation(prev => addReplyToTree(prev));
+  };
+
+  // Fonction pour compter le total de messages dans la conversation
+  const countTotalMessages = (comments) => {
+    return comments.reduce((total, comment) => {
+      return total + 1 + (comment.replies ? countTotalMessages(comment.replies) : 0);
+    }, 0);
+  };
+
+  // Effects
   useEffect(() => {
     if (postId) {
       fetchPost();
-      fetchComments();
+      fetchConversation();
     }
   }, [postId]);
 
-  // Loading state
+  // Chargement initial
   if (isLoading) {
     return (
       <div className="min-h-screen bg-gray-50">
@@ -234,10 +257,9 @@ const PostDetail = () => {
           </div>
           
           <main className="flex-1 lg:ml-64 lg:mr-80">
-            <div className="max-w-3xl mx-auto px-4 py-6 lg:px-8">
-              <div className="text-center py-12">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-black mx-auto mb-4"></div>
-                <p className="text-gray-600">Chargement du post...</p>
+            <div className="max-w-3xl mx-auto px-4 py-6 lg:px-8 overflow-hidden"> {/* ✅ AJOUT: overflow-hidden */}
+              <div className="flex justify-center items-center py-12">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
               </div>
             </div>
           </main>
@@ -250,7 +272,7 @@ const PostDetail = () => {
     );
   }
 
-  // Error state
+  // Erreur
   if (error) {
     return (
       <div className="min-h-screen bg-gray-50">
@@ -261,17 +283,16 @@ const PostDetail = () => {
           
           <main className="flex-1 lg:ml-64 lg:mr-80">
             <div className="max-w-3xl mx-auto px-4 py-6 lg:px-8">
-              <div className="text-center py-12">
-                <div className="bg-red-50 border border-red-200 rounded-lg p-6">
-                  <div className="text-red-600 font-medium mb-2">Erreur</div>
-                  <p className="text-red-700 mb-4">{error}</p>
-                  <button
-                    onClick={() => navigate(-1)}
-                    className="px-4 py-2 bg-red-100 text-red-700 rounded-lg hover:bg-red-200 transition-colors"
-                  >
-                    Retour
-                  </button>
-                </div>
+              <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">
+                {error}
+              </div>
+              <div className="text-center py-8">
+                <button
+                  onClick={() => navigate('/feed')}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                >
+                  Retour au feed
+                </button>
               </div>
             </div>
           </main>
@@ -284,32 +305,20 @@ const PostDetail = () => {
     );
   }
 
-  if (!post) {
-    return (
-      <div className="min-h-screen bg-gray-50">
-        <div className="flex max-w-7xl mx-auto">
-          <div className="hidden lg:block lg:w-64 lg:fixed lg:h-full">
-            <LeftSidebar />
-          </div>
-          
-          <main className="flex-1 lg:ml-64 lg:mr-80">
-            <div className="max-w-3xl mx-auto px-4 py-6 lg:px-8">
-              <div className="text-center py-12">
-                <p className="text-gray-600">Post introuvable</p>
-              </div>
-            </div>
-          </main>
-          
-          <div className="hidden lg:block lg:w-80 lg:fixed lg:right-0 lg:h-full">
-            <RightSidebar />
-          </div>
-        </div>
-      </div>
-    );
-  }
+  const totalMessages = countTotalMessages(conversation);
 
   return (
     <div className="min-h-screen bg-gray-50">
+      {/* Menu mobile overlay */}
+      {showMobileMenu && (
+        <div className="fixed inset-0 z-50 lg:hidden">
+          <div className="fixed inset-0 bg-black bg-opacity-50" onClick={() => setShowMobileMenu(false)}></div>
+          <div className="fixed left-0 top-0 h-full w-64 bg-white shadow-lg">
+            <LeftSidebar onClose={() => setShowMobileMenu(false)} />
+          </div>
+        </div>
+      )}
+
       <div className="flex max-w-7xl mx-auto">
         {/* Sidebar gauche */}
         <div className="hidden lg:block lg:w-64 lg:fixed lg:h-full">
@@ -317,9 +326,23 @@ const PostDetail = () => {
         </div>
         
         {/* Contenu principal */}
-        <main className="flex-1 lg:ml-64 lg:mr-80">
+        <main className="flex-1 lg:ml-64 lg:mr-80 min-w-0"> {/* ✅ AJOUT: min-w-0 pour forcer la compression */}
           <div className="max-w-3xl mx-auto px-4 py-6 lg:px-8">
             
+            {/* Header mobile */}
+            <div className="lg:hidden mb-4 flex items-center justify-between">
+              <button
+                onClick={() => setShowMobileMenu(true)}
+                className="p-2 rounded-lg hover:bg-gray-100"
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+                </svg>
+              </button>
+              <h1 className="text-xl font-bold">Breezy</h1>
+              <div className="w-10"></div>
+            </div>
+
             {/* Bouton retour */}
             <div className="mb-6">
               <button
@@ -345,32 +368,47 @@ const PostDetail = () => {
                       className="w-12 h-12 rounded-full object-cover"
                     />
                   ) : (
-                    <div className={`w-12 h-12 bg-gradient-to-br ${getRandomGradient(0)} rounded-full flex items-center justify-center text-white font-semibold text-lg`}>
+                    <div className={`w-12 h-12 bg-gradient-to-br ${getRandomGradient(0)} rounded-full flex items-center justify-center text-white font-semibold`}>
                       {getInitials(post.author)}
                     </div>
                   )}
                   <div>
                     <div className="flex items-center space-x-2">
-                      <h3 className="font-semibold text-gray-900">{post.author?.username}</h3>
+                      <h3 className="font-semibold text-gray-900">
+                        {post.author?.username || 'Utilisateur'}
+                      </h3>
                       {post.author?.certified && (
                         <svg className="w-5 h-5 text-blue-500" fill="currentColor" viewBox="0 0 20 20">
                           <path fillRule="evenodd" d="M6.267 3.455a3.066 3.066 0 001.745-.723 3.066 3.066 0 013.976 0 3.066 3.066 0 001.745.723 3.066 3.066 0 012.812 2.812c.051.643.304 1.254.723 1.745a3.066 3.066 0 010 3.976 3.066 3.066 0 00-.723 1.745 3.066 3.066 0 01-2.812 2.812 3.066 3.066 0 00-1.745.723 3.066 3.066 0 01-3.976 0 3.066 3.066 0 00-1.745-.723 3.066 3.066 0 01-2.812-2.812 3.066 3.066 0 00-.723-1.745 3.066 3.066 0 010-3.976 3.066 3.066 0 00.723-1.745 3.066 3.066 0 012.812-2.812zm7.44 5.252a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
                         </svg>
                       )}
                     </div>
-                    <p className="text-sm text-gray-500">{formatDate(post.created_at)}</p>
+                    <p className="text-sm text-gray-500">
+                      {formatDate(post.created_at)}
+                    </p>
                   </div>
+                </div>
+                
+                {/* Menu actions */}
+                <div className="relative">
+                  <button className="p-2 hover:bg-gray-100 rounded-full">
+                    <svg className="w-5 h-5 text-gray-500" fill="currentColor" viewBox="0 0 20 20">
+                      <path d="M10 6a2 2 0 110-4 2 2 0 010 4zM10 12a2 2 0 110-4 2 2 0 010 4zM10 18a2 2 0 110-4 2 2 0 010 4z" />
+                    </svg>
+                  </button>
                 </div>
               </div>
 
               {/* Contenu du post */}
               <div className="mb-6">
-                <p className="text-gray-900 text-lg leading-relaxed whitespace-pre-wrap">{post.content}</p>
+                <p className="text-gray-900 text-lg leading-relaxed whitespace-pre-wrap">
+                  {post.content}
+                </p>
               </div>
 
               {/* Actions du post */}
               <div className="flex items-center justify-between pt-4 border-t border-gray-100">
-                <div className="flex items-center space-x-6">
+                <div className="flex items-center space-x-4">
                   {/* Like */}
                   <button
                     onClick={handleLike}
@@ -395,7 +433,7 @@ const PostDetail = () => {
                     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
                     </svg>
-                    <span className="font-medium">{comments.length}</span>
+                    <span className="font-medium">{totalMessages}</span>
                   </button>
                 </div>
 
@@ -412,11 +450,13 @@ const PostDetail = () => {
               </div>
             </div>
 
-            {/* Section commentaires */}
-            <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">
-                Commentaires ({comments.length})
-              </h3>
+            {/* Section conversation */}
+            <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 overflow-hidden"> {/* ✅ AJOUT: overflow-hidden */}
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-semibold text-gray-900">
+                  Conversation ({totalMessages} message{totalMessages > 1 ? 's' : ''})
+                </h3>
+              </div>
 
               {/* Formulaire nouveau commentaire */}
               <div className="mb-6">
@@ -437,15 +477,19 @@ const PostDetail = () => {
                       id="comment-input"
                       value={newComment}
                       onChange={(e) => setNewComment(e.target.value)}
-                      placeholder="Écrivez un commentaire..."
-                      className="w-full p-3 border border-gray-200 rounded-lg resize-none focus:ring-2 focus:ring-black focus:border-transparent"
+                      placeholder="Que pensez-vous de ce post ?"
+                      className="w-full p-3 border border-gray-200 rounded-lg resize-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                       rows="3"
+                      maxLength="280"
                     />
-                    <div className="flex justify-end mt-2">
+                    <div className="flex justify-between items-center mt-2">
+                      <span className="text-sm text-gray-500">
+                        {280 - newComment.length} caractères restants
+                      </span>
                       <button
                         onClick={handlePostComment}
                         disabled={!newComment.trim() || isPostingComment}
-                        className="px-4 py-2 bg-black text-white rounded-lg hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                        className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                       >
                         {isPostingComment ? 'Publication...' : 'Publier'}
                       </button>
@@ -454,55 +498,24 @@ const PostDetail = () => {
                 </div>
               </div>
 
-              {/* Liste des commentaires */}
+              {/* Conversation hiérarchique */}
               {isLoadingComments ? (
                 <div className="text-center py-4">
-                  <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-black mx-auto"></div>
-                  <p className="text-gray-600 mt-2">Chargement des commentaires...</p>
+                  <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600 mx-auto"></div>
+                  <p className="text-gray-600 mt-2">Chargement de la conversation...</p>
                 </div>
-              ) : comments.length > 0 ? (
-                <div className="space-y-4">
-                  {comments.map((comment, index) => (
-                    <div key={comment.id_post} className="flex space-x-3 p-4 bg-gray-50 rounded-lg">
-                      {comment.author?.photo_profil ? (
-                        <img
-                          src={comment.author.photo_profil}
-                          alt={comment.author.username}
-                          className="w-10 h-10 rounded-full object-cover"
-                        />
-                      ) : (
-                        <div className={`w-10 h-10 bg-gradient-to-br ${getRandomGradient(index)} rounded-full flex items-center justify-center text-white font-semibold`}>
-                          {getInitials(comment.author)}
-                        </div>
-                      )}
-                      <div className="flex-1">
-                        <div className="flex items-center space-x-2 mb-1">
-                          <h4 className="font-semibold text-gray-900">{comment.author?.username}</h4>
-                          {comment.author?.certified && (
-                            <svg className="w-4 h-4 text-blue-500" fill="currentColor" viewBox="0 0 20 20">
-                              <path fillRule="evenodd" d="M6.267 3.455a3.066 3.066 0 001.745-.723 3.066 3.066 0 013.976 0 3.066 3.066 0 001.745.723 3.066 3.066 0 012.812 2.812c.051.643.304 1.254.723 1.745a3.066 3.066 0 010 3.976 3.066 3.066 0 00-.723 1.745 3.066 3.066 0 01-2.812 2.812 3.066 3.066 0 00-1.745.723 3.066 3.066 0 01-3.976 0 3.066 3.066 0 00-1.745-.723 3.066 3.066 0 01-2.812-2.812 3.066 3.066 0 00-.723-1.745 3.066 3.066 0 010-3.976 3.066 3.066 0 00.723-1.745 3.066 3.066 0 012.812-2.812zm7.44 5.252a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                            </svg>
-                          )}
-                          <span className="text-sm text-gray-500">{formatDate(comment.created_at)}</span>
-                        </div>
-                        <p className="text-gray-900 whitespace-pre-wrap">{comment.content}</p>
-                        <div className="flex items-center space-x-4 mt-2">
-                          <button
-                            onClick={() => toggleLike(comment.id_post)}
-                            className={`flex items-center space-x-1 text-sm ${
-                              comment.isLiked 
-                                ? 'text-red-600' 
-                                : 'text-gray-500 hover:text-red-600'
-                            } transition-colors`}
-                          >
-                            <svg className="w-4 h-4" fill={comment.isLiked ? "currentColor" : "none"} stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
-                            </svg>
-                            <span>{comment.likeCount || 0}</span>
-                          </button>
-                        </div>
-                      </div>
-                    </div>
+              ) : conversation.length > 0 ? (
+                <div className="space-y-4 overflow-hidden"> {/* ✅ AJOUT: overflow-hidden */}
+                  {conversation.map((comment) => (
+                    <CommentThread
+                      key={comment.id_post}
+                      comment={comment}
+                      postId={postId}
+                      user={user}
+                      onReplyAdded={handleReplyAdded}
+                      depth={0}
+                      maxDepth={999}
+                    />
                   ))}
                 </div>
               ) : (
@@ -511,7 +524,7 @@ const PostDetail = () => {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
                   </svg>
                   <p>Aucun commentaire pour le moment</p>
-                  <p className="text-sm">Soyez le premier à commenter ce post !</p>
+                  <p className="text-sm">Commencez la conversation !</p>
                 </div>
               )}
             </div>
