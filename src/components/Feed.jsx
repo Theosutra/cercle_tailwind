@@ -903,9 +903,6 @@ const Feed = () => {
                                           <span>{comment.likeCount || 0}</span>
                                         </button>
                                         
-                                        <button className="text-xs text-gray-500 hover:text-blue-500 transition-colors">
-                                          Répondre
-                                        </button>
                                       </div>
                                     </div>
                                   </div>
