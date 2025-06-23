@@ -437,7 +437,13 @@ const Feed = () => {
 
         {/* Contenu principal - ✅ AMÉLIORATION : Mieux centré */}
         <main className="flex-1 lg:ml-64 lg:mr-80">
+          
           <div className="max-w-3xl mx-auto px-4 py-6 lg:px-8">
+             <div className="hidden lg:block mb-6 lg:mb-8">
+                <h1 className="text-2xl font-bold text-gray-900">Feed</h1>
+                <p className="text-gray-600">Découvrez les dernières publications de votre cercle</p>
+            </div>
+
             {/* En-tête mobile */}
             <div className="lg:hidden flex items-center justify-between mb-6">
               <button
