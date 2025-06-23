@@ -1,4 +1,4 @@
-// src/context/LoaderContext.jsx
+// src/context/LoaderContext.jsx - CORRIGÉ avec message personnalisé
 import React, { createContext, useContext, useState } from 'react'
 
 const LoaderContext = createContext()
@@ -24,9 +24,9 @@ export const LoaderProvider = ({ children }) => {
     setIsLoading(false)
   }
 
-  // Fonction pour gérer les navigations avec loader automatique
-  const navigateWithLoader = async (navigationFunction, minLoadTime = 500) => {
-    showLoader()
+  // ✅ CORRECTION : Fonction avec message personnalisé
+  const navigateWithLoader = async (navigationFunction, minLoadTime = 500, customMessage = 'Chargement...') => {
+    showLoader(customMessage) // ✅ MODIFIÉ : Utilise le message personnalisé
     
     const startTime = Date.now()
     

@@ -1,5 +1,5 @@
-// src/components/Admin/AdminUsers.jsx
-import React, { useState, useEffect } from 'react';
+// src/components/admin/AdminUsers.jsx - CORRIGÉ
+import React, { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
 
 const AdminUsers = () => {
@@ -32,7 +32,8 @@ const AdminUsers = () => {
     };
   };
 
-  const loadUsers = async () => {
+  // ✅ CORRECTION : useCallback pour éviter les re-créations
+  const loadUsers = useCallback(async () => {
     try {
       setLoading(true);
       const params = new URLSearchParams({
@@ -50,11 +51,33 @@ const AdminUsers = () => {
     } finally {
       setLoading(false);
     }
+  }, [currentPage, filters.role, filters.status, filters.search]);
+
+  // ✅ CORRECTION : Debounce pour la recherche
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      loadUsers();
+    }, 300); // Délai de 300ms pour éviter trop d'appels API
+
+    return () => clearTimeout(timer);
+  }, [loadUsers]);
+
+  // ✅ CORRECTION : Handler de recherche optimisé
+  const handleSearchChange = (value) => {
+    setCurrentPage(1); // Reset la page à 1 lors d'une nouvelle recherche
+    setFilters(prev => ({
+      ...prev,
+      search: value
+    }));
   };
 
-  useEffect(() => {
-    loadUsers();
-  }, [currentPage, filters]);
+  const handleFilterChange = (field, value) => {
+    setCurrentPage(1); // Reset la page à 1 lors d'un changement de filtre
+    setFilters(prev => ({
+      ...prev,
+      [field]: value
+    }));
+  };
 
   const handleBanUser = async () => {
     try {
@@ -154,16 +177,17 @@ const AdminUsers = () => {
         </div>
         
         <div className="flex flex-wrap gap-4">
+          {/* ✅ CORRECTION : Input de recherche optimisé */}
           <input
             type="text"
             placeholder="Rechercher..."
             value={filters.search}
-            onChange={(e) => setFilters({...filters, search: e.target.value})}
+            onChange={(e) => handleSearchChange(e.target.value)}
             className="border border-gray-300 rounded-xl px-4 py-2 bg-white focus:ring-2 focus:ring-black focus:border-transparent w-full lg:w-auto"
           />
           <select 
             value={filters.role} 
-            onChange={(e) => setFilters({...filters, role: e.target.value})}
+            onChange={(e) => handleFilterChange('role', e.target.value)}
             className="border border-gray-300 rounded-xl px-4 py-2 bg-white focus:ring-2 focus:ring-black focus:border-transparent"
           >
             <option value="">Tous les rôles</option>
@@ -173,7 +197,7 @@ const AdminUsers = () => {
           </select>
           <select 
             value={filters.status} 
-            onChange={(e) => setFilters({...filters, status: e.target.value})}
+            onChange={(e) => handleFilterChange('status', e.target.value)}
             className="border border-gray-300 rounded-xl px-4 py-2 bg-white focus:ring-2 focus:ring-black focus:border-transparent"
           >
             <option value="">Tous les statuts</option>
@@ -194,7 +218,7 @@ const AdminUsers = () => {
                 <th className="text-left p-4 font-semibold text-gray-900">Rôle</th>
                 <th className="text-left p-4 font-semibold text-gray-900">Statut</th>
                 <th className="text-left p-4 font-semibold text-gray-900">Inscription</th>
-                <th className="text-left p-4 font-semibold text-gray-900">Dernière connexion</th>
+                <th className="text-left p-4 font-semibold text-gray-900">Posts</th>
                 <th className="text-right p-4 font-semibold text-gray-900">Actions</th>
               </tr>
             </thead>
@@ -211,34 +235,33 @@ const AdminUsers = () => {
                         )}
                       </div>
                       <div>
-                        <p className="font-semibold text-gray-900">{user.prenom} {user.nom}</p>
-                        <p className="text-sm text-gray-600">@{user.username}</p>
-                        <p className="text-xs text-gray-500">{user.mail}</p>
+                        <p className="font-semibold text-gray-900">
+                          {user.prenom} {user.nom}
+                        </p>
+                        <p className="text-sm text-gray-500">@{user.username}</p>
+                        <p className="text-xs text-gray-400">{user.mail}</p>
                       </div>
                     </div>
                   </td>
                   <td className="p-4">
-                    <span className={`px-3 py-1 text-xs font-semibold rounded-full ${getRoleBadgeClass(user.role?.role)}`}>
+                    <span className={`px-3 py-1 rounded-full text-xs font-semibold ${getRoleBadgeClass(user.role?.role)}`}>
                       {user.role?.role || 'USER'}
                     </span>
                   </td>
                   <td className="p-4">
-                    <span className={`px-3 py-1 text-xs font-semibold rounded-full ${getStatusBadgeClass(user.is_active)}`}>
-                      {user.is_active ? '✅ Actif' : '❌ Inactif'}
+                    <span className={`px-2 py-1 rounded-full text-xs font-semibold ${getStatusBadgeClass(user.is_active)}`}>
+                      {user.is_active ? 'Actif' : 'Inactif'}
                     </span>
-                    {user.ban && (
-                      <div className="mt-1">
-                        <span className="px-2 py-1 text-xs bg-red-100 text-red-800 rounded-full">
-                          🚫 Banni
-                        </span>
-                      </div>
-                    )}
                   </td>
-                  <td className="p-4 text-sm text-gray-600">
-                    {formatDate(user.created_at)}
+                  <td className="p-4">
+                    <span className="text-sm text-gray-600">
+                      {formatDate(user.created_at)}
+                    </span>
                   </td>
-                  <td className="p-4 text-sm text-gray-600">
-                    {user.last_login ? formatDate(user.last_login) : 'Jamais'}
+                  <td className="p-4">
+                    <span className="text-sm font-medium text-gray-900">
+                      {user._count?.posts || 0}
+                    </span>
                   </td>
                   <td className="p-4">
                     <div className="flex items-center justify-end space-x-2">
@@ -248,33 +271,24 @@ const AdminUsers = () => {
                           setNewRole(user.role?.role || 'USER');
                           setShowRoleModal(true);
                         }}
-                        className="p-2 text-blue-600 hover:bg-blue-100 rounded-lg transition-colors duration-200"
-                        title="Changer le rôle"
+                        className="px-3 py-1 text-xs bg-blue-600 text-white hover:bg-blue-700 rounded-lg transition-colors"
                       >
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-                        </svg>
+                        Rôle
                       </button>
                       <button
                         onClick={() => {
                           setSelectedUser(user);
                           setShowBanModal(true);
                         }}
-                        className="p-2 text-orange-600 hover:bg-orange-100 rounded-lg transition-colors duration-200"
-                        title="Bannir l'utilisateur"
+                        className="px-3 py-1 text-xs bg-yellow-600 text-white hover:bg-yellow-700 rounded-lg transition-colors"
                       >
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728L5.636 5.636m12.728 12.728L18.364 5.636M5.636 18.364l12.728-12.728" />
-                        </svg>
+                        Bannir
                       </button>
                       <button
                         onClick={() => handleDeleteUser(user.id_user)}
-                        className="p-2 text-red-600 hover:bg-red-100 rounded-lg transition-colors duration-200"
-                        title="Supprimer l'utilisateur"
+                        className="px-3 py-1 text-xs bg-red-600 text-white hover:bg-red-700 rounded-lg transition-colors"
                       >
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                        </svg>
+                        Supprimer
                       </button>
                     </div>
                   </td>
@@ -283,45 +297,47 @@ const AdminUsers = () => {
             </tbody>
           </table>
         </div>
-
-        {/* Pagination */}
-        {users?.pagination && (
-          <div className="flex justify-between items-center p-4 border-t border-gray-200 bg-gray-50">
-            <div className="text-sm text-gray-600">
-              Affichage de {((users.pagination.current_page - 1) * users.pagination.limit) + 1} à{' '}
-              {Math.min(users.pagination.current_page * users.pagination.limit, users.pagination.total)} sur{' '}
-              {users.pagination.total} utilisateurs
-            </div>
-            <div className="flex space-x-2">
-              <button 
-                disabled={!users.pagination.has_prev}
-                onClick={() => setCurrentPage(currentPage - 1)}
-                className="px-4 py-2 text-sm bg-white border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-200"
-              >
-                Précédent
-              </button>
-              <span className="px-4 py-2 text-sm text-gray-600">
-                Page {users.pagination.current_page} sur {users.pagination.total_pages}
-              </span>
-              <button 
-                disabled={!users.pagination.has_next}
-                onClick={() => setCurrentPage(currentPage + 1)}
-                className="px-4 py-2 text-sm bg-white border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-200"
-              >
-                Suivant
-              </button>
-            </div>
-          </div>
-        )}
       </div>
 
-      {/* Modal Bannissement */}
+      {/* Pagination */}
+      {users?.pagination && users.pagination.total_pages > 1 && (
+        <div className="flex justify-between items-center p-4 bg-white rounded-xl border border-gray-200">
+          <div className="text-sm text-gray-600">
+            Affichage de {((users.pagination.current_page - 1) * users.pagination.limit) + 1} à{' '}
+            {Math.min(users.pagination.current_page * users.pagination.limit, users.pagination.total_count)} sur{' '}
+            {users.pagination.total_count} utilisateurs
+          </div>
+          <div className="flex space-x-2">
+            <button 
+              disabled={!users.pagination.has_prev}
+              onClick={() => setCurrentPage(currentPage - 1)}
+              className="px-4 py-2 text-sm bg-gray-100 border border-gray-300 rounded-lg hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-200"
+            >
+              Précédent
+            </button>
+            <span className="px-4 py-2 text-sm text-gray-600">
+              Page {users.pagination.current_page} sur {users.pagination.total_pages}
+            </span>
+            <button 
+              disabled={!users.pagination.has_next}
+              onClick={() => setCurrentPage(currentPage + 1)}
+              className="px-4 py-2 text-sm bg-gray-100 border border-gray-300 rounded-lg hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-200"
+            >
+              Suivant
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de bannissement */}
       {showBanModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl p-6 w-full max-w-md">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">
-              Bannir l'utilisateur {selectedUser?.username}
-            </h3>
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl p-6 w-full max-w-md mx-4">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">Bannir l'utilisateur</h3>
+            <p className="text-gray-600 mb-4">
+              Vous êtes sur le point de bannir <strong>{selectedUser?.username}</strong>
+            </p>
+            
             <div className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -333,9 +349,9 @@ const AdminUsers = () => {
                   className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-black focus:border-transparent"
                   rows="3"
                   placeholder="Expliquez la raison du bannissement..."
-                  required
                 />
               </div>
+              
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Durée (en heures)
@@ -347,13 +363,14 @@ const AdminUsers = () => {
                 >
                   <option value="24">24 heures</option>
                   <option value="72">3 jours</option>
-                  <option value="168">7 jours</option>
-                  <option value="720">30 jours</option>
+                  <option value="168">1 semaine</option>
+                  <option value="720">1 mois</option>
                   <option value="8760">1 an</option>
                 </select>
               </div>
             </div>
-            <div className="flex space-x-3 mt-6">
+            
+            <div className="flex justify-end space-x-3 mt-6">
               <button
                 onClick={() => {
                   setShowBanModal(false);
@@ -361,14 +378,14 @@ const AdminUsers = () => {
                   setBanDuration('24');
                   setSelectedUser(null);
                 }}
-                className="flex-1 px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors duration-200"
+                className="px-4 py-2 text-gray-600 hover:text-gray-800 transition-colors"
               >
                 Annuler
               </button>
               <button
                 onClick={handleBanUser}
                 disabled={!banReason.trim()}
-                className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-200"
+                className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
                 Bannir
               </button>
@@ -377,50 +394,46 @@ const AdminUsers = () => {
         </div>
       )}
 
-      {/* Modal Changement de rôle */}
+      {/* Modal de changement de rôle */}
       {showRoleModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl p-6 w-full max-w-md">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">
-              Changer le rôle de {selectedUser?.username}
-            </h3>
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Nouveau rôle
-                </label>
-                <select
-                  value={newRole}
-                  onChange={(e) => setNewRole(e.target.value)}
-                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-black focus:border-transparent"
-                >
-                  <option value="USER">Utilisateur</option>
-                  <option value="MODERATOR">Modérateur</option>
-                  <option value="ADMIN">Administrateur</option>
-                </select>
-              </div>
-              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
-                <p className="text-sm text-yellow-800">
-                  ⚠️ Attention : Cette action modifiera les permissions de l'utilisateur.
-                </p>
-              </div>
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl p-6 w-full max-w-md mx-4">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">Changer le rôle</h3>
+            <p className="text-gray-600 mb-4">
+              Modifier le rôle de <strong>{selectedUser?.username}</strong>
+            </p>
+            
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Nouveau rôle
+              </label>
+              <select
+                value={newRole}
+                onChange={(e) => setNewRole(e.target.value)}
+                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-black focus:border-transparent"
+              >
+                <option value="USER">Utilisateur</option>
+                <option value="MODERATOR">Modérateur</option>
+                <option value="ADMIN">Administrateur</option>
+              </select>
             </div>
-            <div className="flex space-x-3 mt-6">
+            
+            <div className="flex justify-end space-x-3">
               <button
                 onClick={() => {
                   setShowRoleModal(false);
                   setNewRole('');
                   setSelectedUser(null);
                 }}
-                className="flex-1 px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors duration-200"
+                className="px-4 py-2 text-gray-600 hover:text-gray-800 transition-colors"
               >
                 Annuler
               </button>
               <button
                 onClick={handleChangeRole}
-                className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors duration-200"
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
               >
-                Confirmer
+                Modifier
               </button>
             </div>
           </div>

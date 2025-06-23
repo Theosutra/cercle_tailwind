@@ -1,10 +1,12 @@
-// src/components/Admin/AdminSidebar.jsx
+// src/components/admin/AdminSidebar.jsx - AVEC LoaderProvider corrigé
 import React from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
+import { useLoader } from '../../context/LoaderContext';
 
 const AdminSidebar = ({ stats = {} }) => {
   const { user, logout } = useAuth();
+  const { navigateWithLoader, hideLoader } = useLoader(); // ✅ AJOUT hideLoader
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -48,11 +50,47 @@ const AdminSidebar = ({ stats = {} }) => {
     }
   };
 
+  // ✅ AJOUT : Navigation avec loader et messages contextuels
+  const handleNavigation = async (path, label) => {
+    // Éviter la navigation si on est déjà sur la page
+    if (location.pathname === path) return;
+
+    const loadingMessages = {
+      '/admin/dashboard': 'Chargement du dashboard...',
+      '/admin/users': 'Chargement des utilisateurs...',
+      '/admin/posts': 'Chargement des posts...',
+      '/admin/reports': 'Chargement des signalements...'
+    };
+
+    await navigateWithLoader(
+      () => navigate(path),
+      500, // Temps minimum de chargement
+      loadingMessages[path] || `Chargement de ${label}...`
+    );
+  };
+
+  // ✅ CORRECTION : Déconnexion avec reset du loader
   const handleLogout = async () => {
     if (window.confirm('Êtes-vous sûr de vouloir vous déconnecter ?')) {
-      await logout();
-      navigate('/');
+      try {
+        // ✅ IMPORTANT : Forcer la remise à zéro du loader AVANT la déconnexion
+        hideLoader();
+        
+        await logout();
+        navigate('/', { replace: true });
+      } catch (error) {
+        console.error('Erreur lors de la déconnexion:', error);
+        // ✅ S'assurer que le loader est caché même en cas d'erreur
+        hideLoader();
+      }
     }
+  };
+
+  // ✅ CORRECTION : Retour au site avec reset du loader
+  const handleBackToSite = async () => {
+    // ✅ IMPORTANT : Reset du loader avant de quitter l'admin
+    hideLoader();
+    navigate('/feed');
   };
 
   const isActivePath = (path) => {
@@ -65,7 +103,7 @@ const AdminSidebar = ({ stats = {} }) => {
       <div className="p-6 border-b border-gray-100">
         <div className="flex items-center space-x-4 p-4 rounded-2xl bg-gradient-to-r from-gray-50 to-gray-100 transition-all duration-300 hover:shadow-lg group">
           <div className="w-12 h-12 bg-gradient-to-br from-red-500 to-red-600 rounded-full flex items-center justify-center text-white font-bold text-lg shadow-lg group-hover:scale-110 transition-transform duration-300">
-            {user?.prenom?.[0]?.toUpperCase() || 'A'}
+            {user?.prenom?.[0]?.toUpperCase() || user?.username?.[0]?.toUpperCase() || 'A'}
           </div>
           <div className="flex-1">
             <h3 className="text-lg font-semibold text-gray-900 transition-colors duration-300 group-hover:text-black">
@@ -101,7 +139,7 @@ const AdminSidebar = ({ stats = {} }) => {
           {menuItems.map((item) => (
             <li key={item.id}>
               <button
-                onClick={() => navigate(item.path)}
+                onClick={() => handleNavigation(item.path, item.label)} // ✅ MODIFIÉ
                 className={`w-full flex items-center justify-between space-x-4 px-6 py-4 rounded-2xl text-left transition-all duration-300 group relative overflow-hidden ${
                   isActivePath(item.path)
                     ? 'bg-black text-white shadow-lg' 
@@ -120,16 +158,15 @@ const AdminSidebar = ({ stats = {} }) => {
                   </div>
                   
                   <span className={`font-medium text-lg relative z-10 transition-all duration-300 ${
-                    !isActivePath(item.path) ? 'group-hover:text-black group-hover:font-semibold' : ''
+                    !isActivePath(item.path) ? 'group-hover:font-semibold' : ''
                   }`}>
                     {item.label}
                   </span>
                 </div>
 
-                {/* Badge pour les notifications */}
                 {item.badge && (
-                  <span className={`px-2 py-1 text-xs font-bold rounded-full ${
-                    item.urgent 
+                  <span className={`px-3 py-1 text-xs font-bold rounded-full flex-shrink-0 relative z-10 transition-all duration-300 ${
+                    item.urgent && !isActivePath(item.path) 
                       ? 'bg-red-500 text-white animate-pulse' 
                       : isActivePath(item.path)
                         ? 'bg-white text-black'
@@ -152,7 +189,7 @@ const AdminSidebar = ({ stats = {} }) => {
       <div className="px-6 py-4 border-t border-gray-100">
         <div className="space-y-2">
           <button
-            onClick={() => navigate('/feed')}
+            onClick={handleBackToSite} // ✅ MODIFIÉ
             className="w-full flex items-center justify-center space-x-3 px-6 py-3 rounded-xl text-gray-600 hover:bg-gray-50 hover:text-gray-900 transition-all duration-300 group text-sm"
           >
             <svg className="w-4 h-4 transition-transform duration-300 group-hover:scale-110" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -166,7 +203,7 @@ const AdminSidebar = ({ stats = {} }) => {
       {/* Bouton Déconnexion */}
       <div className="p-6 border-t border-gray-100">
         <button
-          onClick={handleLogout}
+          onClick={handleLogout} // ✅ MODIFIÉ
           className="w-full flex items-center justify-center space-x-3 px-6 py-4 rounded-2xl text-red-600 hover:bg-red-50 hover:text-red-700 transition-all duration-300 group border border-red-200 hover:border-red-300"
         >
           <svg className="w-5 h-5 transition-transform duration-300 group-hover:scale-110" fill="none" stroke="currentColor" viewBox="0 0 24 24">

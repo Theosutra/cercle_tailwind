@@ -1,7 +1,8 @@
-// src/components/Admin/AdminDashboard.jsx - Composant principal modulaire
+// src/components/admin/AdminDashboard.jsx - VERSION CORRIGÉE avec AdminPageLoader
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
+import { useLoader } from '../../context/LoaderContext'; // ✅ AJOUT du loader
 import axios from 'axios';
 
 // Import des composants admin
@@ -10,11 +11,13 @@ import AdminOverview from './AdminOverview';
 import AdminUsers from './AdminUsers';
 import AdminPosts from './AdminPosts';
 import AdminReports from './AdminReports';
+import AdminPageLoader from './AdminPageLoader'; // ✅ AJOUT du loader admin
 
 const AdminDashboard = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { user } = useAuth();
+  const { showLoader, hideLoader } = useLoader(); // ✅ AJOUT
   
   const [dashboardData, setDashboardData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -45,6 +48,9 @@ const AdminDashboard = () => {
 
   const loadDashboardData = async () => {
     try {
+      // ✅ AJOUT : Loader pour le chargement initial
+      showLoader('Chargement du dashboard admin...');
+      
       const response = await axios.get(`${API_BASE_URL}/admin/dashboard`, getAuthHeaders());
       setDashboardData(response.data);
     } catch (error) {
@@ -55,6 +61,7 @@ const AdminDashboard = () => {
       }
     } finally {
       setLoading(false);
+      hideLoader(); // ✅ AJOUT : Cacher le loader
     }
   };
 
@@ -69,7 +76,7 @@ const AdminDashboard = () => {
     pendingReports: dashboardData?.global_stats?.pending_reports
   };
 
-  // Affichage de chargement global
+  // ✅ CORRECTION : Affichage de chargement simple (pas de loader complexe)
   if (loading && !dashboardData) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -101,6 +108,9 @@ const AdminDashboard = () => {
     <div className="min-h-screen bg-gray-50 flex">
       {/* Sidebar fixe */}
       <AdminSidebar stats={sidebarStats} />
+      
+      {/* AdminPageLoader spécifique */}
+      <AdminPageLoader />
       
       {/* Contenu principal */}
       <div className="flex-1 ml-80 overflow-auto">
