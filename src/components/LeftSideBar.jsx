@@ -1,14 +1,39 @@
-// src/components/LeftSideBar.jsx - Votre style original + loader
-import React from 'react';
+// src/components/LeftSideBar.jsx - Mise à jour avec notifications
+import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { useLoader } from '../context/LoaderContext'; // ✅ NOUVEAU
+import { useLoader } from '../context/LoaderContext';
 import { useNavigate, useLocation } from 'react-router-dom';
 
 const LeftSidebar = () => {
   const { user, logout } = useAuth();
-  const { navigateWithLoader } = useLoader(); // ✅ NOUVEAU
+  const { navigateWithLoader } = useLoader();
   const navigate = useNavigate();
   const location = useLocation();
+  
+  // États pour les notifications
+  const [unreadCount, setUnreadCount] = useState(0);
+
+  const API_BASE = 'http://localhost:3000/api/v1';
+
+  // Icône cloche avec animation et bulle rouge
+  const BellIcon = ({ hasNotifications, className = "w-6 h-6" }) => (
+    <div className="relative">
+      <svg 
+        viewBox="0 0 24 24" 
+        fill="currentColor" 
+        className={`${className} transition-all duration-300`}
+      >
+        <path d="M12 22c1.1 0 2-.9 2-2h-4c0 1.1.9 2 2 2zm6-6v-5c0-3.07-1.64-5.64-4.5-6.32V4c0-.83-.67-1.5-1.5-1.5s-1.5.67-1.5 1.5v.68C7.63 5.36 6 7.92 6 11v5l-2 2v1h16v-1l-2-2z"/>
+      </svg>
+      {hasNotifications && (
+        <div className="absolute -top-2 -right-2 min-w-[20px] h-5 bg-red-500 rounded-full flex items-center justify-center border-2 border-white animate-pulse">
+          <span className="text-xs text-white font-bold px-1">
+            {unreadCount > 99 ? '99+' : unreadCount}
+          </span>
+        </div>
+      )}
+    </div>
+  );
 
   const menuItems = [
     { 
@@ -30,6 +55,13 @@ const LeftSidebar = () => {
       label: 'Messages', 
       path: '/messages',
       isActive: location.pathname === '/messages'
+    },
+    { 
+      icon: <BellIcon hasNotifications={unreadCount > 0} />,
+      label: 'Notifications', 
+      path: '/notifications',
+      isActive: location.pathname === '/notifications',
+      hasNotification: unreadCount > 0
     },
     { 
       icon: (
@@ -63,25 +95,67 @@ const LeftSidebar = () => {
     }
   ];
 
-  // ✅ NOUVEAU: Fonction de navigation avec loader (garde votre logique originale)
+  // Fonction pour récupérer le compteur de notifications avec gestion d'erreur
+  const fetchUnreadCount = useCallback(async () => {
+    try {
+      const token = localStorage.getItem('accessToken');
+      if (!token || !user) return;
+
+      const response = await fetch(`${API_BASE}/notifications/count`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setUnreadCount(data.unreadCount || 0);
+      } else if (response.status === 404) {
+        // Si l'endpoint n'existe pas encore, on peut simuler ou ignorer
+        console.log('Endpoint notifications/count pas encore disponible');
+      }
+    } catch (error) {
+      console.error('Erreur lors du chargement du compteur de notifications:', error);
+    }
+  }, [user]);
+
+  // Charger le compteur au montage et périodiquement
+  useEffect(() => {
+    if (user) {
+      fetchUnreadCount();
+      
+      // Rafraîchissement automatique toutes les 30 secondes
+      const interval = setInterval(fetchUnreadCount, 30000);
+      return () => clearInterval(interval);
+    }
+  }, [user, fetchUnreadCount]);
+
+  // Mise à jour du compteur quand on quitte la page notifications
+  useEffect(() => {
+    if (location.pathname !== '/notifications') {
+      fetchUnreadCount();
+    }
+  }, [location.pathname, fetchUnreadCount]);
+
+  // Fonction de navigation avec loader
   const handleNavigation = async (path) => {
-    // Éviter la navigation si on est déjà sur la page
     if (location.pathname === path) return;
 
     await navigateWithLoader(
       () => navigate(path),
-      500 // Temps minimum de chargement (0.5 seconde)
+      500
     );
   };
 
-  // ✅ NOUVEAU: Fonction de déconnexion avec loader
+  // Fonction de déconnexion avec loader
   const handleLogout = async () => {
     await navigateWithLoader(
       async () => {
         await logout();
         navigate('/', { replace: true });
       },
-      800 // Temps minimum pour la déconnexion
+      800
     );
   };
 
@@ -92,7 +166,7 @@ const LeftSidebar = () => {
       <div className="p-6 group">
         <div 
           className="flex flex-col items-center text-center space-y-3 p-4 rounded-2xl cursor-pointer transition-all duration-300 hover:bg-gray-50 hover:scale-105 hover:shadow-sm"
-          onClick={() => handleNavigation('/profile')} // ✅ MODIFIÉ: Utilise la nouvelle fonction
+          onClick={() => handleNavigation('/profile')}
         >
           {/* Photo de profil */}
           <div className="relative">
@@ -140,7 +214,7 @@ const LeftSidebar = () => {
           {menuItems.map((item, index) => (
             <li key={index}>
               <button
-                onClick={() => handleNavigation(item.path)} // ✅ MODIFIÉ: Utilise la nouvelle fonction
+                onClick={() => handleNavigation(item.path)}
                 className={`w-full flex items-center justify-start space-x-4 px-6 py-4 rounded-2xl text-left transition-all duration-300 group relative overflow-hidden ${
                   item.isActive 
                     ? 'bg-black text-white shadow-lg' 
@@ -184,7 +258,7 @@ const LeftSidebar = () => {
       <div className="p-6 border-t border-gray-100 group">
         <div 
           className="flex items-center justify-center space-x-3 p-4 rounded-2xl cursor-pointer transition-all duration-300 hover:bg-gray-50 hover:scale-105"
-          onClick={() => handleNavigation('/')} // ✅ MODIFIÉ: Utilise la nouvelle fonction
+          onClick={() => handleNavigation('/')}
         >
           <div className="w-8 h-8 border-2 border-black rounded-full flex items-center justify-center transition-all duration-300 group-hover:border-gray-600 group-hover:shadow-lg group-hover:rotate-12">
             <div className="w-2 h-2 bg-black rounded-full transition-all duration-300 group-hover:bg-gray-600 group-hover:scale-125"></div>
